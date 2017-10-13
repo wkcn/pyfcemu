@@ -2,6 +2,11 @@ from ctypes import *
 
 CPUFrequency = 1789773
 
+[_, interruptNone, interruptNMI, interruptIRQ] = range(4)
+
+[_, modeAbsolute, modeAbsoluteX, modeAbsoluteY, modeAccumulator, modeImmediate, modeImplied, modeIndexedIndirect, modeIndirect, modeIndirectIndexed, modeRelative, modeZeroPage, modeZeroPageX, modeZeroPageY] = range(14)
+
+
 # instructionModes indicates the addressing mode for each instruction
 instructionModes = (c_char * 256)()
 instructionModes[:] = [
