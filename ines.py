@@ -1,15 +1,17 @@
 import struct
 from numpy import *
-iNESFileMagic = 0x1a53454e
+from cartridge import *
+iNESFileMagic = b'NES\x1a'
 
 def LoadNESFile(path):
     print ("Loading %s" % path)
     fin = open(path, "rb")
-    Magic, NumPRG, NumCHR, Control1, Control2, NumRAM, _ = struct.unpack("<Iccccc7s", fin.read(16))
+    Magic, NumPRG, NumCHR, Control1, Control2, NumRAM, _ = struct.unpack("<4sccccc7s", fin.read(16))
     if Magic != iNESFileMagic:
         raise RuntimeError("Invalid .nes File")
 
     NumPRG = byte(ord(NumPRG))
+    NumCHR = byte(ord(NumCHR))
     Control1 = byte(ord(Control1))
     Control2 = byte(ord(Control2))
     NumRAM = byte(ord(NumRAM))
@@ -29,9 +31,9 @@ def LoadNESFile(path):
         fin.read(512)
 
 	# read prg-rom bank(s)
-    prg = struct.unpack("16384s", fin.read(16384))
+    prg = fromstring(fin.read(16384), byte)
 	# read chr-rom bank(s)
-    _chr = struct.unpack("8192s", fin.read(8192))
+    _chr = fromstring(fin.read(8192), byte)
 
     if NumCHR == 0:
         _chr = zeros(8192).astype(byte)

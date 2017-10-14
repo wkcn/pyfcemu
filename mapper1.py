@@ -24,23 +24,22 @@ class Mapper1:
 
     def Read(self, address):
         if address < 0x2000:
-            bank = address / uint16(0x1000)
+            bank = address // uint16(0x1000)
             offset = address % uint16(0x1000)
             return self.cartridge.CHR[self.chrOffsets[bank] + int(offset)]
         elif address >= 0x8000:
             address -= uint16(0x8000)
-            bank = address / uint16(0x4000)
+            bank = address // uint16(0x4000)
             offset = address % uint16(0x4000)
             return self.cartridge.PRG[self.prgOffsets[bank] + int(offset)]
         elif address >= 0x6000:
             return self.cartridge.SRAM[int(address) - 0x6000]
         else:
-            raise RuntimeError("Unhandled Mapper1 Read at address: 0x%4X" % address)
-        return 0
+            raise RuntimeError("Unhandled Mapper1 read at address: 0x%4X" % address)
 
     def Write(self, address, value):
         if address < 0x2000:
-            bank = address / uint16(0x1000)
+            bank = address // uint16(0x1000)
             offset = address % uint16(0x1000)
             self.cartridge.CHR[self.chrOffsets[bank] + int(offset)] = value
         elif address >= 0x8000:
@@ -48,8 +47,7 @@ class Mapper1:
         elif address >= 0x6000:
             self.cartridge.SRAM[int(address) - 0x6000] = value
         else:
-            raise RuntimeError("Unhandled Mapper1 Read at address: 0x%4X" % address)
-        return 0
+            raise RuntimeError("Unhandled Mapper1 write at address: 0x%4X" % address)
 
     def loadRegister(address, value):
         if value & 0x80 == 0x80:
@@ -96,7 +94,7 @@ class Mapper1:
     def preBankOffset(self, index):
         if index >= 0x80:
             index -= 0x100
-        index %= len(self.cartridge.PRG) / 0x4000
+        index %= len(self.cartridge.PRG) // 0x4000
         offset = index * 0x4000
         if offset < 0:
             offset += len(self.cartridge.PRG)
@@ -105,7 +103,7 @@ class Mapper1:
     def chrBankOffset(self, index):
         if index >= 0x80:
             index -= 0x100
-        index %= (len(self.cartridge.CHR) / 0x1000)
+        index %= (len(self.cartridge.CHR) // 0x1000)
         offset = index * 0x1000
         if offset < 0:
             offset += len(self.cartridge.CHR)
