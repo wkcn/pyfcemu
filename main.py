@@ -4,7 +4,7 @@ import ui
 def getPaths():
     if len(sys.argv) >= 2:
         name = sys.argv[1]
-        if name.split('.')[-1] == "nes":
+        if name.split('.')[-1].lower() == "nes":
             return [name]
     return []
 

@@ -1,36 +1,53 @@
 from defines import *
-from ctypes import *
 from memory import *
+from numpy import *
+import cpu_func as CPU_FUNC
 
 class stepInfo:
     def __init__(self):
-        self.address = c_ushort()
-        self.pc = c_ushort()
-        self.mode = c_char()
+        self.address = uint16()
+        self.pc = uint16()
+        self.mode = byte()
 
 class CPU:
+    MODES_FUNC = {
+            modeAbsolute: CPU_FUNC.modeAbsoluteFunc, 
+            modeAbsoluteX: CPU_FUNC.modeAbsoluteXFunc, modeAbsoluteY: CPU_FUNC.modeAbsoluteYFunc, 
+            modeAccumulator: CPU_FUNC.modeAccumulatorFunc,
+            modeImmediate: CPU_FUNC.modeImmediateFunc,
+            modeImplied: CPU_FUNC.modeImpliedFunc,
+            modeIndexedIndirect: CPU_FUNC.modeIndexedIndirectFunc,
+            modeIndirect: CPU_FUNC.modeIndirectFunc,
+            modeIndirectIndexed: CPU_FUNC.modeIndirectIndexedFunc,
+            modeRelative: CPU_FUNC.modeRelativeFunc,
+            modeZeroPage: CPU_FUNC.modeZeroPageFunc,
+            modeZeroPageX: CPU_FUNC.modeZeroPageX,
+            modeZeroPageY: CPU_FUNC.modeZeroPageY
+    }
     def __init__(self, console):
         self.Memory = Memory(console) # Memory Interface
-        self.Cycles = c_ulonglong() # Number of Cycles
-        self.PC = c_ushort() # Program Counter
-        self.SP = c_char() # Stack Pointer
-        self.A = c_char() # Accumulator
-        self.X = c_char() # X register
-        self.Y = c_char() # Y register
-        self.C = c_char() # Carry Flag
-        self.Z = c_char() # Zero Flag
-        self.I = c_char() # Interrupt Disable Flag 
-        self.D = c_char() # Decimal Mode Flag 
-        self.B = c_char() # Break Command Flag 
-        self.U = c_char() # Unused Flag 
-        self.V = c_char() # Overflow Flag 
-        self.N = c_char() # Negative Flag 
-        self.interrupt = c_char() # interrupt type to perform 
-        self.stall = c_int() # Number of Cycles to Stall
+        self.Cycles = uint64() # Number of Cycles
+        self.PC = uint16() # Program Counter
+        self.SP = byte() # Stack Pointer
+        self.A = byte() # Accumulator
+        self.X = byte() # X register
+        self.Y = byte() # Y register
+        self.C = byte() # Carry Flag
+        self.Z = byte() # Zero Flag
+        self.I = byte() # Interrupt Disable Flag 
+        self.D = byte() # Decimal Mode Flag 
+        self.B = byte() # Break Command Flag 
+        self.U = byte() # Unused Flag 
+        self.V = byte() # Overflow Flag 
+        self.N = byte() # Negative Flag 
+        self.interrupt = byte() # interrupt type to perform 
+        self.stall = 0 # Number of Cycles to Stall
         self.table = [stepInfo() for _ in range(256)] 
+        self.address = uint16()
+        self.pageCrossed = False 
     def createTable(self):
         c = self
-        c.table = [
+        self.table = [
 		c.brk, c.ora, c.kil, c.slo, c.nop, c.ora, c.asl, c.slo,
 		c.php, c.ora, c.asl, c.anc, c.nop, c.ora, c.asl, c.slo,
 		c.bpl, c.ora, c.kil, c.slo, c.nop, c.ora, c.asl, c.slo,
@@ -67,8 +84,8 @@ class CPU:
     def Reset(self):
         pass
     def Step(self):
-        if self.stall.value > 0:
-            self.stall.value -= 1
+        if self.stall > 0:
+            self.stall -= 1
             return 1
 
         cycles = self.Cycles
@@ -77,18 +94,81 @@ class CPU:
             self.nmi()
         elif self.iterrupt == interruptIRQ:
             self.irq()
+
         self.interrupt = interruptNone
 
-        opCode = self.Read(self.PC)
+        opcode = self.Read(self.PC)
         mode = instructionModes[opcode]
 
-        address = c_ushort()
-        pageCrossed = False 
+        MODES_FUNC[mode](self)
 
-        if mode == modeAbsolute:
-            address = self.Read16(self.PC.value + 1)
-        elif mode == modeAbsoluteX:
-            address = c_ushort(self.Read16(self.PC.value + 1).value + self.X.value)
+        self.PC += instructionSizes[opcode]
+        self.Cycles += instructionCycles[opcode]
+
+        if self.pageCrossed:
+            self.Cycles += instructionPageCycles[opcode]
+
+        info = stepInfo(address, self.PC, mode)
+        self.table[opcode](info)
+
+        return cpu.Cycles - cycles
+
+        def Flags(self):
+            flags = 0
+            flags |= (self.C << 0)
+            flags |= (self.Z << 1)
+            flags |= (self.I << 2)
+            flags |= (self.D << 3)
+            flags |= (self.B << 4)
+            flags |= (self.U << 5)
+            flags |= (self.V << 6)
+            flags |= (self.N << 7)
+
+            return flags
+
+        def SetFlags(self, flags):
+            self.C = (flags >> 0) & 1
+            self.Z = (flags >> 1) & 1
+            self.I = (flags >> 2) & 1
+            self.D = (flags >> 3) & 1
+            self.B = (flags >> 4) & 1
+            self.U = (flags >> 5) & 1
+            self.V = (flags >> 6) & 1
+            self.N = (flags >> 7) & 1
+
+        # ADC - Add with Carry
+        def adc(self, info):
+            a = self.A
+            b = self.Read(info.address)
+            c = self.C
+            self.A = a + b + c
+            self.setZN(self.A)
+            if a + b + c > 0xFF:
+                self.C = byte(1)
+            else:
+                self.C = byte(0)
+            if (a ^ b) & 0x80 == 0 and (a ^ self.A) & 0x80 != 0:
+                self.V = byte(1)
+            else:
+                self.V = byte(0)
+
+        # AND - Logical AND
+        def _and(self, info):
+            self.A = (self.A & self.Read(info.address))
+            self.setZN(self.A)
+
+        # ASL - Arithmetic Shift Left
+        def asl(self, info):
+            if info.mode == modeAccumulator:
+                self.C = (self.A >> byte(7)) & byte(1)
+                self.A <<= byte(1)
+                self.setZN(self.A)
+            else:
+                value = self.Read(info.address)
+                self.C = (value >> byte(7)) & 1
+                value <<= byte(1)
+                self.Write(info.address, value)
+                self.setZN(value)
 
         
 
