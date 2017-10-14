@@ -113,65 +113,171 @@ class CPU:
 
         return cpu.Cycles - cycles
 
-        def Flags(self):
-            flags = 0
-            flags |= (self.C << 0)
-            flags |= (self.Z << 1)
-            flags |= (self.I << 2)
-            flags |= (self.D << 3)
-            flags |= (self.B << 4)
-            flags |= (self.U << 5)
-            flags |= (self.V << 6)
-            flags |= (self.N << 7)
+    def Flags(self):
+        flags = 0
+        flags |= (self.C << 0)
+        flags |= (self.Z << 1)
+        flags |= (self.I << 2)
+        flags |= (self.D << 3)
+        flags |= (self.B << 4)
+        flags |= (self.U << 5)
+        flags |= (self.V << 6)
+        flags |= (self.N << 7)
 
-            return flags
+        return flags
 
-        def SetFlags(self, flags):
-            self.C = (flags >> 0) & 1
-            self.Z = (flags >> 1) & 1
-            self.I = (flags >> 2) & 1
-            self.D = (flags >> 3) & 1
-            self.B = (flags >> 4) & 1
-            self.U = (flags >> 5) & 1
-            self.V = (flags >> 6) & 1
-            self.N = (flags >> 7) & 1
+    def SetFlags(self, flags):
+        self.C = (flags >> 0) & 1
+        self.Z = (flags >> 1) & 1
+        self.I = (flags >> 2) & 1
+        self.D = (flags >> 3) & 1
+        self.B = (flags >> 4) & 1
+        self.U = (flags >> 5) & 1
+        self.V = (flags >> 6) & 1
+        self.N = (flags >> 7) & 1
 
-        # ADC - Add with Carry
-        def adc(self, info):
-            a = self.A
-            b = self.Read(info.address)
-            c = self.C
-            self.A = a + b + c
+    # ADC - Add with Carry
+    def adc(self, info):
+        a = self.A
+        b = self.Read(info.address)
+        c = self.C
+        self.A = a + b + c
+        self.setZN(self.A)
+        if a + b + c > 0xFF:
+            self.C = byte(1)
+        else:
+            self.C = byte(0)
+        if (a ^ b) & 0x80 == 0 and (a ^ self.A) & 0x80 != 0:
+            self.V = byte(1)
+        else:
+            self.V = byte(0)
+
+    # AND - Logical AND
+    def _and(self, info):
+        self.A = (self.A & self.Read(info.address))
+        self.setZN(self.A)
+
+    # ASL - Arithmetic Shift Left
+    def asl(self, info):
+        if info.mode == modeAccumulator:
+            self.C = (self.A >> byte(7)) & byte(1)
+            self.A <<= byte(1)
             self.setZN(self.A)
-            if a + b + c > 0xFF:
-                self.C = byte(1)
-            else:
-                self.C = byte(0)
-            if (a ^ b) & 0x80 == 0 and (a ^ self.A) & 0x80 != 0:
-                self.V = byte(1)
-            else:
-                self.V = byte(0)
+        else:
+            value = self.Read(info.address)
+            self.C = (value >> byte(7)) & 1
+            value <<= byte(1)
+            self.Write(info.address, value)
+            self.setZN(value)
 
-        # AND - Logical AND
-        def _and(self, info):
-            self.A = (self.A & self.Read(info.address))
-            self.setZN(self.A)
+    # BCC - Branch if Carry Clear
+    def bcc(self, info):
+        if self.C == 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
 
-        # ASL - Arithmetic Shift Left
-        def asl(self, info):
-            if info.mode == modeAccumulator:
-                self.C = (self.A >> byte(7)) & byte(1)
-                self.A <<= byte(1)
-                self.setZN(self.A)
-            else:
-                value = self.Read(info.address)
-                self.C = (value >> byte(7)) & 1
-                value <<= byte(1)
-                self.Write(info.address, value)
-                self.setZN(value)
+    # BCS - Branch if Carry Set
+    def bcs(self, info):
+        if self.C != 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
 
+    # BEQ - Branch if Equal
+    def beq(self, info):
+        if self.Z == 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
+
+    # BIT - Bit Test
+    def bit(self, info):
+        value = self.Read(info.address)
+        self.V = (value >> byte(6)) & byte(1)
+        self.setZ(value & self.A)
+        self.setN(value)
         
+    # BMI - Branch if Minus
+    def bmi(self, info):
+        if self.N != 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
 
+    # BNE - Branch if Not Equal
+    def bne(self, info):
+        if self.Z == 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
+
+    # BPL - Branch if Positive
+    def bpl(self, info):
+        if self.N == 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
+
+    # BRK - Force Interrupt
+    def brk(self, info):
+        self.push16(self.PC)
+        self.php(info)
+        self.sei(info)
+        self.PC = self.Read16(0xFFFE)
+    
+    # BVC - Branch if Overflow Clear
+    def bvc(self, info):
+        if self.V == 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
+
+    # BVS - Branch if Overflow Set
+    def bvs(self, info):
+        if self.V != 0:
+            self.PC = info.address
+            self.addBranchCycles(info)
+
+    # CLC - Clear Carray Flag
+    def clc(self, info):
+        self.C = byte(0)
+
+    # CLD - Clear Decimal Mode
+    def cld(self, info):
+        self.D = byte(0)
+
+    # CLI - Clear Interrupt Disable
+    def cli(self, info):
+        self.I = byte(0)
+
+    # CLV - Clear Overflow Flag
+    def clv(self, info):
+        self.V = byte(0)
+
+    # CMP - Compare
+    def cmp(self, info):
+        value = self.Read(info.address)
+        self.compare(self.A, value)
+
+    # CPX - Compare X Register
+    def cpx(self, info):
+        value = self.Read(info.address)
+        self.compare(self.X, value)
+
+    # CPY - Compare Y Register
+    def cpy(self, info):
+        value = self.Read(info.address)
+        self.compare(self.Y, value)
+
+    # DEC - Decrement Memory
+    def dec(self, info):
+        value = self.Read(info.address) - byte(1)
+        self.Write(info.address, value)
+        self.setZN(value)
+
+    # DEX - Decrement X Register
+    def dex(self, info):
+        self.X -= byte(1)
+        self.setZN(self.X)
+
+    # DEY - Decrement Y Register
+    def dey(self, info):
+        self.Y -= byte(1)
+        self.setZN(self.Y)
 
 
 
