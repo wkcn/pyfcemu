@@ -5,11 +5,11 @@ def modeAbsoluteFunc(cpu):
 
 def modeAbsoluteXFunc(cpu):
     cpu.address = cpu.Read16(cpu.PC + uint16(1)) + cpu.X
-    cpu.pageCrossed = pagesDiffer(cpu.address - cpu.X, cpu.address)
+    cpu.pageCrossed = cpu.pagesDiffer(cpu.address - cpu.X, cpu.address)
 
 def modeAbsoluteYFunc(cpu):
     cpu.address = cpu.Read16(cpu.PC + uint16(1)) + cpu.Y   
-    cpu.pageCrossed = pagesDiffer(cpu.address - cpu.Y, cpu.address)
+    cpu.pageCrossed = cpu.pagesDiffer(cpu.address - cpu.Y, cpu.address)
 
 def modeAccumulatorFunc(cpu):
     cpu.address = uint16(0)
@@ -28,7 +28,7 @@ def modeIndirectFunc(cpu):
 
 def modeIndirectIndexedFunc(cpu):
     cpu.address = cpu.read16bug(uint16(cpu.Read(cpu.PC + uint16(1))) + uint16(cpu.Y))
-    cpu.pageCrossed = pagesDiffer(cpu.address - uint16(cpu.Y), cpu.address)
+    cpu.pageCrossed = cpu.pagesDiffer(cpu.address - uint16(cpu.Y), cpu.address)
 
 def modeRelativeFunc(cpu):
     offset = uint16(cpu.Read(cpu.PC + uint16(1)))

@@ -45,6 +45,8 @@ class CPU:
         self.table = [stepInfo() for _ in range(256)] 
         self.address = uint16()
         self.pageCrossed = False 
+        self.console = console
+
     def createTable(self):
         c = self
         self.table = [
@@ -81,8 +83,107 @@ class CPU:
 		c.beq, c.sbc, c.kil, c.isc, c.nop, c.sbc, c.inc, c.isc,
 		c.sed, c.sbc, c.nop, c.isc, c.nop, c.sbc, c.inc, c.isc,
 	]
+
     def Reset(self):
-        pass
+        self.PC = self.Read16(uint16(0xFFFC))
+        self.SP = byte(0xFD)
+        self.SetFlags(byte(0x24))
+
+    # pagesDiffer returns true if the two addresses reference different pages
+    def pagesDiffer(self, a, b):
+        return (a & 0xFF00) != (b & 0xFF00)
+
+    # addBranchCycles adds a cycle for taking a branch and adds another cycle
+    # if the branch jumps to a new page
+    def addBranchCycles(self, info):
+        self.Cycles += 1
+        if self.pagesDiffer(info.pc, info.address):
+            self.Cycles += 1
+
+    def compare(self, a, b):
+        self.setZN(a - b)
+        if a >= b:
+            self.C = byte(1)
+        else:
+            self.C = byte(0)
+    
+    def Read(self, address):
+        if address < 0x2000:
+            return self.console.RAM[address % uint16(0x0800)]
+        elif address < 0x4000:
+            return self.console.PPU.readRegister(uint16(0x2000) + address % uint16(8))
+        elif address == 0x4014:
+            return self.console.PPU.readRegister(address)
+        elif address == 0x4015:
+            return self.console.APU.readRegister(address)
+        elif address == 0x4016:
+            return self.console.Controller1.Read()
+        elif address == 0x4017:
+            return self.console.Controller2.Read() 
+        elif address < 0x6000:
+            pass # [TODO] I/O registers
+        elif address >= 0x6000:
+            return self.console.Mapper.Read(address)
+        return byte(0)
+
+    def Write(self, address, value):
+        if address < 0x2000:
+            self.console.RAM[address % uint16(0x0800)] = value
+        elif address < 0x4000:
+            self.console.PPU.writeRegister(uint16(0x2000) + address % uint16(8), value)
+        elif address < 0x4014:
+            self.console.APU.writeRegister(address, value)
+        elif address == 0x4014:
+            self.console.PPU.writeRegister(address, value)
+        elif address == 0x4015:
+            self.console.APU.writeRegister(address, value)
+        elif address == 0x4016:
+            self.console.Controller1.Write(value)
+            self.console.Controller2.Write(value)
+        elif address == 0x4017:
+            self.console.APU.writeRegister(address, value)
+        elif address < 0x6000:
+            pass # [TODO] I/O registers
+        elif address >= 0x6000:
+            self.console.Mapper.Write(address, value)
+
+    # Read16 reads two bytes using Read to return a double-word value
+    def Read16(self, address):
+        lo = uint16(self.Read(address))
+        hi = uint16(self.Read(address + uint16(1)))
+        return (hi << uint16(8)) | lo
+
+    # read16bug emulates a 6502 bug that caused the low byte to wrap without
+    def read16bug(self, address):
+        a = address
+        b = (a & uint16(0xFF00)) | uint16(byte(a) + byte(1))
+        lo = self.Read(a)
+        hi = self.Read(b)
+        return (hi << uint16(8)) | lo
+
+    # push pushes a byte onto the stack
+    def push(self, value):
+        self.Write(uint16(0x100) | uint16(self.SP), value)
+        self.SP -= byte(1) 
+
+    # pull pops a byte from the stack
+    def pull(self):
+        self.SP += byte(1)
+        return self.Read(uint16(0x100) | uint16(self.SP))
+
+    # push16 pushes two bytes onto the stack
+    def push16(self, value):
+        hi = byte(value >> uint16(8))
+        lo = byte(value & uint16(0xFF))
+        self.push(hi)
+        self.push(lo)
+
+    # pull16 pops two bytes from the stack
+    def pull16(self):
+        lo = uint16(self.pull())
+        hi = uint16(self.pull())
+        return (hi << uint16(8)) | lo
+
     def Step(self):
         if self.stall > 0:
             self.stall -= 1
@@ -112,6 +213,22 @@ class CPU:
         self.table[opcode](info)
 
         return cpu.Cycles - cycles
+    
+    # NMI - Non-Maskable Interrupt
+    def nmi(self):
+        self.push16(self.PC)
+        self.php(None)
+        self.PC = self.Read16(0xFFFA) 
+        self.I = byte(1)
+        self.Cycles += 7
+
+    # IRQ - IRQ Interrupt
+    def irq(self):
+        self.push16(self.PC)
+        self.php(None)
+        self.PC = self.REad16(0xFFFE)
+        self.I = byte(1)
+        self.Cycles += 7
 
     def Flags(self):
         flags = byte(0)
@@ -126,6 +243,7 @@ class CPU:
 
         return flags
 
+    # SetFlags sets the processor status flags
     def SetFlags(self, flags):
         self.C = (flags >> byte(0)) & byte(1)
         self.Z = (flags >> byte(1)) & byte(1)
@@ -135,6 +253,34 @@ class CPU:
         self.U = (flags >> byte(5)) & byte(1)
         self.V = (flags >> byte(6)) & byte(1)
         self.N = (flags >> byte(7)) & byte(1)
+
+    # setZ sets the zero flag if the argument is zero
+    def setZ(self, value):
+        if value == 0:
+            self.Z = byte(1)
+        else:
+            self.Z = byte(0)
+
+    # setN sets the negative flag if the argument is negative (high bit is set)
+    def setN(self, value):
+        if value & byte(0x80) != 0:
+            self.N = byte(1)
+        else:
+            self.N = byte(0)
+
+    # setZN sets the zero flag and the negative flag
+    def setZN(self, value):
+        self.setZ(value)
+        self.setN(value)
+
+    # triggerNMI causes a non-maskable interrupt to occur on the next cycle
+    def triggerNMI(self):
+        self.interrupt = interruptNMI
+
+    # triggerIRQ causes an IRQ interrupt to occur on the next cycle
+    def triggerIRQ(self):
+        if self.I == 0:
+            self.interrupt = interruptIRQ
 
     # ADC - Add with Carry
     def adc(self, info):

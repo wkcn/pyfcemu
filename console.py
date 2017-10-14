@@ -1,4 +1,4 @@
-from ctypes import *
+from numpy import *
 from controller import *
 from ines import *
 from mapper import *
@@ -19,7 +19,7 @@ class Console:
 
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)
-    ram = create_string_buffer(2048) 
+    ram = zeros(2048).astype(byte) 
     controller1 = NewController()
     controller2 = NewController()
 
