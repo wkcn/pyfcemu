@@ -114,27 +114,27 @@ class CPU:
         return cpu.Cycles - cycles
 
     def Flags(self):
-        flags = 0
-        flags |= (self.C << 0)
-        flags |= (self.Z << 1)
-        flags |= (self.I << 2)
-        flags |= (self.D << 3)
-        flags |= (self.B << 4)
-        flags |= (self.U << 5)
-        flags |= (self.V << 6)
-        flags |= (self.N << 7)
+        flags = byte(0)
+        flags |= (self.C << byte(0))
+        flags |= (self.Z << byte(1))
+        flags |= (self.I << byte(2))
+        flags |= (self.D << byte(3))
+        flags |= (self.B << byte(4))
+        flags |= (self.U << byte(5))
+        flags |= (self.V << byte(6))
+        flags |= (self.N << byte(7))
 
         return flags
 
     def SetFlags(self, flags):
-        self.C = (flags >> 0) & 1
-        self.Z = (flags >> 1) & 1
-        self.I = (flags >> 2) & 1
-        self.D = (flags >> 3) & 1
-        self.B = (flags >> 4) & 1
-        self.U = (flags >> 5) & 1
-        self.V = (flags >> 6) & 1
-        self.N = (flags >> 7) & 1
+        self.C = (flags >> byte(0)) & byte(1)
+        self.Z = (flags >> byte(1)) & byte(1)
+        self.I = (flags >> byte(2)) & byte(1)
+        self.D = (flags >> byte(3)) & byte(1)
+        self.B = (flags >> byte(4)) & byte(1)
+        self.U = (flags >> byte(5)) & byte(1)
+        self.V = (flags >> byte(6)) & byte(1)
+        self.N = (flags >> byte(7)) & byte(1)
 
     # ADC - Add with Carry
     def adc(self, info):
@@ -279,9 +279,118 @@ class CPU:
         self.Y -= byte(1)
         self.setZN(self.Y)
 
+    # EOR - Exclusive OR
+    def eor(self, info):
+        self.A = self.A & self.Read(info.address)
+        self.setZN(self.A)
 
+    # INC - Increment Memory
+    def inc(self, info):
+        value = self.Read(info.address) + byte(1)
+        self.Write(info.address, value)
+        self.setZN(value)
 
+    # INX - Increment X Register
+    def inx(self, info):
+        self.X += byte(1)
+        self.setZN(self.X)
 
+    # INY - Increment Y Register
+    def iny(self, info):
+        self.Y += byte(1)
+        self.setZN(self.Y)
+
+    # JMP - Jump
+    def jmp(self, info):
+        self.PC = info.address
+
+    # JSR - Jump to Subroutine
+    def jsr(self, info):
+        self.push16(self.PC - uint16(1))
+
+    # LDA - Load Accumulator
+    def lda(self, info):
+        self.A = self.Read(self.address)
+        self.setZN(self.A)
+
+    # LDX - Load X Register
+    def ldx(self, info):
+        self.X = self.Read(self.address)
+        self.setZN(self.X)
+
+    # LDY - Load Y Register
+    def ldy(self, info):
+        self.Y = self.Read(self.address)
+        self.setZN(self.Y)
+
+    # LSR - Logical Shift Right
+    def lsr(self, info):
+        if info.mode == modeAccumulator:
+            self.C = self.A & byte(1)
+            self.A >>= byte(1)
+            self.setZN(self.A)
+        else:
+            value = slef.Read(info.address)
+            self.C = value & byte(1)
+            value >>= byte(1)
+            self.Write(info.address, value)
+            self.setZN(value)
+
+    # NOP - No Operation
+    def nop(self, info):
+        pass
+
+    # ORA - Logical Inclusive OR
+    def ora(self, info):
+        self.A |= self.Read(info.address)
+        self.setZN(self.A)
+
+    # PHA - Push Accumulator
+    def pha(self, info):
+        self.push(self.A)
+
+    # PHP - Push Processor Status
+    def php(self, info):
+        self.push(self.Flags() | 0x10)
+
+    # PLA - Pull Accumulator
+    def pla(self, info):
+        self.A = self.pull()
+        self.setZN(self.A)
+
+    # PLP - Pull Processor Status
+    def plp(self, info):
+        self.SetFlags((self.pull() & 0xEF) | 0x20)
+
+    # ROL - Rotate Left
+    def rol(self, info):
+        if info.mode == modeAccumulator:
+            c = self.C
+            self.C = (self.A >> byte(7)) & byte(1)
+            self.A = (self.A << byte(1)) | c
+            self.setZN(self.A)
+        else:
+            c = self.C
+            value = self.Read(info.address)
+            self.C = (value >> byte(7)) & byte(1)
+            value = (value << byte(1)) | c
+            self.Write(info.address, value)
+            self.setZN(value)
+
+    # ROR - Rotate Right
+    def ror(self, info):
+        if info.mode == modeAccumulator:
+            c = self.C
+            self.C = (self.A & byte(1))
+            self.A = (self.A >> byte(1)) | (c << byte(7))
+            self.setZN(self.A)
+        else:
+            c = self.C
+            value = self.Read(info.address)
+            self.C = value & byte(1)
+            value = (value >> byte(1)) | (c << byte(7))
+            self.Write(info.address, value)
+            self.setZN(value)
 
 def NewCPU(console):
     cpu = CPU(console)
