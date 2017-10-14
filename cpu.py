@@ -218,7 +218,7 @@ class CPU:
         self.push16(self.PC)
         self.php(info)
         self.sei(info)
-        self.PC = self.Read16(0xFFFE)
+        self.PC = self.Read16(uint16(0xFFFE))
     
     # BVC - Branch if Overflow Clear
     def bvc(self, info):
@@ -351,7 +351,7 @@ class CPU:
 
     # PHP - Push Processor Status
     def php(self, info):
-        self.push(self.Flags() | 0x10)
+        self.push(self.Flags() | byte(0x10))
 
     # PLA - Pull Accumulator
     def pla(self, info):
@@ -360,7 +360,7 @@ class CPU:
 
     # PLP - Pull Processor Status
     def plp(self, info):
-        self.SetFlags((self.pull() & 0xEF) | 0x20)
+        self.SetFlags((self.pull() & byte(0xEF)) | byte(0x20))
 
     # ROL - Rotate Left
     def rol(self, info):
@@ -392,8 +392,129 @@ class CPU:
             self.Write(info.address, value)
             self.setZN(value)
 
+    # RTI - Return from Interrupt
+    def rti(self, info):
+        self.SetFlags((self.pull() & byte(0xEF)) | byte(0x20))
+        self.PC = self.pull16()
+
+    # RTS - Return from Subroutine
+    def rts(self, info):
+        self.PC = self.pull16() + uint16(1)
+
+    # SBC - Subtract with Carry
+    def sbc(self, info):
+        a = self.A
+        b = self.Read(info.address)
+        c = self.C
+        self.A = a - b - (byte(1) - c)
+        self.setZN(self.A)
+        if int(a) - int(b) - int(1-c) >= 0:
+            self.C = byte(1)
+        else:
+            self.C = byte(0)
+
+        if (a ^ b) & 0x80 != 0 and (a * self.A) & 0x80 != 0:
+            self.V = byte(1)
+        else:
+            self.V = byte(0)
+
+    # SEC - Set Carry Flag
+    def sec(self, info):
+        self.C = byte(1)
+
+    # SED - Set Decimal Flag
+    def sed(self, info):
+        self.D = byte(1)
+
+    # SEI - Set Interrupt Disable
+    def sei(self, info):
+        self.I = byte(1)
+        
+    # STA - Store Accumulator
+    def sta(self, info):
+        self.Write(info.address, self.A)
+
+    # STX - Store X Register
+    def stx(self, info):
+        self.Write(info.address, self.X)
+
+    # STY - Store Y Register
+    def sty(self, info):
+        self.Write(info.address, self.Y)
+
+    # TAX - Transfer Accumulator to X
+    def tax(self, info):
+        self.X = self.A
+        self.setZN(self.X)
+
+    # TAY - Transfer Accumulator to Y
+    def tay(self, info):
+        self.Y = self.A
+        self.setZN(self.Y)
+
+    # TSX - Transfer Stack Pointer to X
+    def tsx(self, info):
+        self.X = self.SP
+        self.setZN(self.X)
+
+    # TXA - Transfer X to Accumulator
+    def txa(self, info):
+        self.A = self.X
+        self.setZN(self.A)
+
+    # TXS - Transfer X to Stack Pointer
+    def txs(self, info):
+        self.SP = self.X
+
+    # TYA - Transfer Y to Accumulator
+    def tya(self, info):
+        self.A = self.Y
+        self.setZN(self.A)
+
+    # illegal opcodes below
+    def ahx(self, info):
+        pass
+    def alr(self, info):
+        pass
+    def anc(self, info):
+        pass
+    def arr(self, info):
+        pass
+    def axs(self, info):
+        pass
+    def dcp(self, info):
+        pass
+    def isc(self, info):
+        pass
+    def kil(self, info):
+        pass
+    def las(self, info):
+        pass
+    def lax(self, info):
+        pass
+    def rla(self, info):
+        pass
+    def rra(self, info):
+        pass
+    def sax(self, info):
+        pass
+    def shx(self, info):
+        pass
+    def shy(self, info):
+        pass
+    def slo(self, info):
+        pass
+    def sre(self, info):
+        pass
+    def tas(self, info):
+        pass
+    def xaa(self, info):
+        pass
+
+
 def NewCPU(console):
     cpu = CPU(console)
     cpu.createTable()
     cpu.Reset()
     return cpu
+
