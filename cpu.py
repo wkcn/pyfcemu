@@ -4,10 +4,10 @@ from numpy import *
 import cpu_func as CPU_FUNC
 
 class stepInfo:
-    def __init__(self):
-        self.address = uint16()
-        self.pc = uint16()
-        self.mode = byte()
+    def __init__(self, address = None, pc = None, mode = None):
+        self.address = address
+        self.pc = pc
+        self.mode = mode 
 
 class CPU:
     MODES_FUNC = {
@@ -193,7 +193,7 @@ class CPU:
 
         if self.interrupt == interruptNMI:
             self.nmi()
-        elif self.iterrupt == interruptIRQ:
+        elif self.interrupt == interruptIRQ:
             self.irq()
 
         self.interrupt = interruptNone
@@ -201,7 +201,7 @@ class CPU:
         opcode = self.Read(self.PC)
         mode = instructionModes[opcode]
 
-        MODES_FUNC[mode](self)
+        CPU.MODES_FUNC[mode](self)
 
         self.PC += instructionSizes[opcode]
         self.Cycles += instructionCycles[opcode]
@@ -209,10 +209,10 @@ class CPU:
         if self.pageCrossed:
             self.Cycles += instructionPageCycles[opcode]
 
-        info = stepInfo(address, self.PC, mode)
+        info = stepInfo(self.address, self.PC, mode)
         self.table[opcode](info)
 
-        return cpu.Cycles - cycles
+        return self.Cycles - cycles
     
     # NMI - Non-Maskable Interrupt
     def nmi(self):

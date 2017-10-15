@@ -17,6 +17,38 @@ class Console:
         self.Mapper = None
         self.RAM = None
 
+    def Reset(self):
+        self.CPU.Reset()
+    
+    def Step(self):
+        cpuCycles = self.CPU.Step()
+        ppuCycles = cpuCycles * uint64(3)
+        for i in range(ppuCycles):
+            self.PPU.Step()
+            self.Mapper.Step()
+        for i in range(cpuCycles):
+            self.APU.Step()
+        return cpuCycles
+
+    def StepFrame(self):
+        cpuCycles = 0
+        frame = self.PPU.Frame
+        while frame == self.PPU.Frame:
+            cpuCycles += self.Step()
+        return cpuCycles
+
+    def StepSeconds(self, seconds):
+        cycles = int(CPUFrequency * seconds)
+        while cycles > 0:
+            cycles -= self.Step()
+
+    def Buffer(self):
+        return self.PPU.front 
+
+    def BackgroundColor(self):
+        return Palette[self.PPU.readPalette(0) % 64]
+
+
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)
     ram = zeros(2048).astype(byte) 
@@ -34,6 +66,6 @@ def NewConsole(path):
     console.Mapper = mapper
     console.CPU = NewCPU(console)
     console.APU = NewAPU(console)
-    console.PPU = NewPPU(console)
+    console.PPU = PPU(console)
     
     return console, None
