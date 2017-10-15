@@ -55,6 +55,64 @@ class PPU:
     def writeOAMAddress(self, value):
         self.oamAddress = value
 
+    def readOAMData(value):
+        self.oamData[self.oamAddress] = value
+        self.oamAddress += byte(1) 
+
+    def writeScroll(value):
+        if self.w == 0:
+            self.t = (self.t & uint16(0xFFE0)) | (uint16(value) >> uint16(3)) 
+            self.x = value & byte(0x07)
+            self.w = byte(1) 
+        else:
+            self.t = (self.t & uint16(0x8FFF)) | ((uint16(value) & uint16(0x07)) << uint16(12)) 
+            self.t = (self.t & uint16(0xFC1F)) | ((uint16(value) & uint16(0xF8)) << uint16(2)) 
+            # ???
+            self.w = byte(0)
+
+    def writeAddress(self, value):
+        if self.w == 0:
+            self.t = (self.t & uint16(0x80FF)) | ((uint16(value) & uint16(0x3F)) << uint16(8))
+            self.w = byte(1)
+        else:
+            self.t = (self.t & uint16(0xFF00)) | uint16(value)
+            self.v = self.t
+            self.w = byte(0)
+
+    def readData(self):
+        value = self.Read(self.v)
+        if self.v % 0x4000 < 0x3F00:
+            buffered = self.bufferedData
+            self.bufferedData = value
+            value = buffered
+        else:
+            self.bufferedData = self.Read(self.v - uint16(0x1000)) 
+
+        if self.flagIncrement == 0:
+            self.v += uint16(1)
+        else:
+            self.v += uint16(32)
+        return value
+
+    def writeData(self, value):
+        self.Write(self.v, value)
+        if self.flagIncrement == 0:
+            self.v += uint16(1)
+        else:
+            self.v += uint16(32)
+
+    def writeDMA(self, value):
+        cpu = self.console.CPU
+        address = uint16(value) << uint16(8)
+        for i in range(256):
+            self.oamData[self.oamAddress] = cpu.Read(address)
+            self.oamAddress += byte(1) 
+            address += uint16(1)
+        cpu.stall += 513 
+        if cpu.Cycles % 2 == 1:
+            cpu.stall += 1
+
+
     def Step(self):
         self.tick()
 
