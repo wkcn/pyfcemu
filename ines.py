@@ -36,5 +36,5 @@ def LoadNESFile(path):
     _chr = fromstring(fin.read(8192), byte)
 
     if NumCHR == 0:
-        _chr = zeros(8192).astype(byte)
+        _chr = zeros(8192, dtype = byte)
     return Cartridge(prg, _chr, mapper, mirror, battery), None

@@ -3,14 +3,13 @@ from memory import *
 
 class PPU:
     def __init__(self, console):
-        self.Memory = NewPPUMemory(console)
         self.console = console
         self.Cycle = 340
         self.ScanLine = 240
         self.Frame = 0
         self.t = uint16()
-        self.front = zeros((256, 240, 3)).astype(uint8)
-        self.back = zeros((256, 240, 3)).astype(uint8)
+        self.front = zeros((256, 240, 3), dtype = uint8)
+        self.back = zeros((256, 240, 3), dtype = uint8)
         self.writeControl(0)
         self.writeMask(0)
         self.writeOAMAddress(0)
@@ -21,6 +20,30 @@ class PPU:
                 7: self.fetchHighTileByte,
                 0: self.storeTileData
         }
+
+    def Read(self, address):
+        address = address % uint16(0x4000)
+        if address < 0x2000:
+            return self.console.Mapper.Read(address)
+        elif address < 0x3F00:
+            mode = self.console.Cartridge.Mirror
+            return self.console.PPU.nameTableData[MirrorAddress(mode, address) % uint16(2048)]
+        elif address < 0x4000:
+            return self.console.PPU.readPalette(address % uint16(32))
+        else:
+            raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
+
+    def Write(self, address, value):
+        address = address % uint16(0x4000)
+        if address < 0x2000:
+            self.console.Mapper.Write(address, value)
+        elif address < 0x3F00:
+            mode = self.console.Cartridge.Mirror
+            self.console.PPU.nameTableData[MirrorAddress(mode, address) % uint16(2048)] = value
+        elif address < 0x4000:
+            self.console.PPU.writePalette(address % uint16(32), value)
+        else:
+            raise RuntimeError("Unhandled PPU Memory write at address: 0x%04X" % address)
 
     def readPalette(self, address):
         if address >= 16 and address % 4 == 0:
@@ -112,6 +135,30 @@ class PPU:
         if cpu.Cycles % 2 == 1:
             cpu.stall += 1
 
+    def fetchNameTableByte(self):
+        v = self.v
+        address = uint16(0x2000) | (v & uint16(0x0FFF))
+        self.nameTableByte = self.Read(address)
+
+    def fetchAttributeTableByte(self):
+        v = self.v
+        address = uint16(0x23C0) | (v & uint16(0x0C00)) | ((v >> uint16(4)) & uint16(0x38)) | ((v >> uint16(2)) & uint16(0x07)) 
+        shift = ((v >> uint16(4)) & uint16(4)) | (v & uint16(2))
+        self.attributeTableByte = (((self.Read(address) >> byte(shift)) & byte(3)) << byte(2)) 
+
+    def fetchLowTileByte(self):
+        fineY = (self.v >> uint16(12)) & uint16(7)
+        table = self.flagBackgroundTable
+        tile = self.nameTableByte
+        address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
+        self.lowTileByte = self.Read(address)
+
+    def fetchHighTileByte(self):
+        fineY = (self.v >> uint16(12)) & uint16(7)
+        table = self.flagBackgroundTable
+        tile = self.nameTableByte
+        address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
+        self.highTileByte = self.Read(address + uint16(8))
 
     def Step(self):
         self.tick()
@@ -132,4 +179,3 @@ class PPU:
                 self.tileData <<= uint64(4)
                 self.CYCLE_TO_DO[self.Cycle % 8]()
 
-        ### TODO
