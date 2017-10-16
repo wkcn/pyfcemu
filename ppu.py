@@ -7,7 +7,60 @@ class PPU:
         self.Cycle = 340
         self.ScanLine = 240
         self.Frame = 0
+
+        # storage variables 
+        self.paletteData = zeros(32, dtype = byte)
+        self.nameTableData = zeros(2048, dtype = byte)
+        self.oamData = zeros(256, dtype = byte) 
+
+        # PPU registers
+        self.v = uint16()
         self.t = uint16()
+        self.x = byte()
+        self.w = byte()
+        self.f = byte()
+
+        self.register = byte()
+
+        self.nmiOccurred = False
+        self.nmiOutput = False
+        self.nmiPrevious = False
+        self.nmiDelay = byte()
+
+        self.nameTableByte = byte()
+        self.attributeTableByte = byte()
+        self.lowTileByte = byte()
+        self.highTileByte = byte()
+        self.tileData = uint64()
+
+        self.spriteCount = 0
+        self.spritePatterns = zeros(8, dtype = uint32)
+        self.spritePositions = zeros(8, dtype = byte)
+        self.spritePriorities = zeros(8, dtype = byte)
+        self.spriteIndexes = zeros(8, dtype = byte)
+
+        self.flagNameTable = byte()
+        self.flagIncrement = byte()
+        self.flagSpriteTable = byte()
+        self.flagBackgroundTable = byte()
+        self.flagSpriteSize = byte()
+        self.flagMasterSlave = byte()
+
+        self.flagGrayscale = byte()
+        self.flagShowLeftBackground = byte()
+        self.flagShowLeftSprites = byte()
+        self.flagShowBackground = byte()
+        self.flagShowSprites = byte()
+        self.flagRedTint = byte()
+        self.flagGreenTint = byte()
+        self.flagBlueTint = byte()
+
+        self.flagSpriteZeroHit = byte()
+        self.flagSpriteOverflow = byte()
+
+        self.oamAddress = byte()
+        self.bufferedData = byte()
+
         self.front = zeros((256, 240, 3), dtype = uint8)
         self.back = zeros((256, 240, 3), dtype = uint8)
         self.writeControl(0)
@@ -70,7 +123,7 @@ class PPU:
         self.flagShowLeftBackground = (value >> byte(1)) & byte(1)
         self.flagShowLeftSprites = (value >> byte(2)) & byte(1)
         self.flagShowBackground = (value >> byte(3)) & byte(1)
-        self.flagSHowSprites = (value >> byte(4)) & byte(1)
+        self.flagShowSprites = (value >> byte(4)) & byte(1)
         self.flagRedTint = (value >> byte(5)) & byte(1)
         self.flagGreenTint = (value >> byte(6)) & byte(1)
         self.flagBlueTint = (value >> byte(7)) & byte(1)
@@ -160,10 +213,157 @@ class PPU:
         address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
         self.highTileByte = self.Read(address + uint16(8))
 
+    def storeTileData(self):
+        a = self.fetchAttributeTableByte
+        data = uint32(0)
+        for i in range(8):
+            p1 = (self.lowTileByte & byte(0x80)) >> byte(7)
+            p2 = (self.highTileByte & byte(0x80)) >> byte(6)
+            self.lowTileByte <<= byte(1)
+            self.highTileByte <<= byte(1)
+            data <<= uint32(4)
+            data |= uint32(a | p1 | p2)
+        self.tileData |= uint64(data)
+
+    def fetchTileData(self):
+        return uint32(self.tileData >> uint64(32)) 
+
+    def backgroundPixel(self):
+        if self.flagShowBackground == 0:
+            return byte(0)
+        data = self.fetchTileData() >> ((uint32(7) - self.x) * uint32(4))
+        return byte(data & byte(0x0F))
+
+    def spritePixel(self): 
+        if self.flagShowSprites == 0:
+            return byte(0), byte(0)
+        for i in range(self.spriteCount):
+            offset = (self.Cycle - 1) - self.spritePositions[i]
+            if offset < 0 or offset > 7:
+                continue
+            offset = 7 - offset
+            color = byte((self.spritePatterns[i] >> byte(offset * 4)) & 0x0F)
+            if color % 4 == 0:
+                continue
+            return byte(i), color
+        return byte(0), byte(0)
+
+    def renderPixel(self):
+        x = self.Cycle - 1
+        y = self.ScanLine
+        background = self.backgroundPixel()
+        i, sprite = self.spritePixel()
+        if x < 8 and self.flagShowLeftBackground == 0:
+            background = byte(0)
+        if x < 8 and self.flagShowLeftSprites == 0:
+            sprite = byte(0)
+        b = (background % 4 != 0)
+        s = (sprite % 4 != 0)
+        color = byte(0)
+        if not b and not s:
+            color = byte(0)
+        elif not b and s:
+            color = sprite | byte(0x10)
+        elif b and not s:
+            color = background
+        else:
+            if self.spriteIndexes[i] == 0 and x < 255:
+                self.flagSpriteZeroHit = byte(1) 
+            if self.spritePriorities[i] == 0:
+                color = sprite | byte(0x10)
+            else:
+                color = background
+        c = Palette[self.readPalette(uint16(color)) % 64]
+        self.back.SetRGBA(x, y, c)
+
+        def fetchSpritePattern(self, i, row):
+            tile = self.oamData[i * 4 + 1]
+            attributes = self.oamData[i * 4 + 2]
+            address = uint16(0)
+            if self.flagSpriteSize == 0:
+                if attributes&0x80 == 0x80:
+                    row = 7 - row
+                table = self.flagSpriteTable
+                address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
+            else:
+                if attributes & 0x80 == 0x80:
+                    row = 15 - row
+                table = tile & byte(1)
+                tile &= byte(0xFE)
+                if row > 7:
+                    tile += byte(1)
+                    row -= 8
+                address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
+            a = (attributes & byte(3)) << byte(2)
+            lowTileByte = self.Read(address)
+            highTileByte = self.Read(address + uint16(8))
+            data = uint32(0)
+            for i in range(8):
+                if attributes & 0x40 == 0x40:
+                    p1 = (lowTileByte & byte(1))
+                    p2 = (highTileByte & byte(1)) << byte(1)
+                    lowTileByte >>= byte(1)
+                    highTileByte >>= byte(1)
+                else:
+                    p1 = (lowTileByte & byte(0x80)) >> byte(7)
+                    p2 = (highTileByte & byte(0x80)) >> byte(6)
+                    lowTileByte <<= byte(1)
+                    highTileByte <<= byte(1)
+                data <<= uint32(4)
+                data |= uint32(a | p1 | p2)
+            return data
+    
+    def evaluateSprites(self):
+        if self.flagSpriteSize == 0:
+            h = 8
+        else:
+            h = 16
+        count = 0
+        for i in range(64):
+            y = self.oamData[i * 4 + 0]
+            a = self.oamData[i * 4 + 2]
+            x = self.oamData[i * 4 + 3]
+            row = self.ScanLine - int(y)
+            if row < 0 or row >= h:
+                continue
+            if count < 0:
+                self.spritePatterns[count] = self.fetchSpritePattern(i, row)
+                self.spritePositions[count] = x
+                self.spritePriorities[count] = (a >> byte(5)) & byte(1)
+                self.spriteIndexes[count] = byte(i)
+            count += 1
+        if count > 8:
+            count = 8
+            self.flagSpriteOverflow = byte(1)
+        self.spriteCount = count
+
+    def tick(self):
+        if self.nmiDelay > 0:
+            self.nmiDelay -= byte(1)
+            if self.nmiDelay == 0 and self.nmiOutput and self.nmiOccurred:
+                self.console.CPU.triggerNMI()
+
+        if self.flagShowBackground != 0 or self.flagShowSprites != 0:
+            if self.f == 1 and self.ScanLine == 261 and self.Cycle == 339:
+                self.Cycle = 0
+                self.ScanLine = 0
+                self.Frame += uint64(1)
+                self.f ^= byte(1)
+                return
+
+        self.Cycle += 1
+        if self.Cycle > 340:
+            self.Cycle = 0
+            self.ScanLine += 1
+            if self.ScanLine > 261:
+                self.ScanLine = 0
+                self.Frame += uint64(1)
+                self.f ^= byte(1)
+
     def Step(self):
         self.tick()
 
-        renderingEnabled = (self.flagShowBackground != 0) or (self.flagSHowSprites != 0)
+        renderingEnabled = (self.flagShowBackground != 0) or (self.flagShowSprites != 0)
         preLine = (self.ScanLine == 261)
         visibleLine = (self.ScanLine < 240)
         renderLine = preLine or visibleLine
