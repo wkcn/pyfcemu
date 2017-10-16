@@ -31,9 +31,9 @@ def LoadNESFile(path):
         fin.read(512)
 
 	# read prg-rom bank(s)
-    prg = fromstring(fin.read(16384), byte)
+    prg = fromstring(fin.read(16384 * NumPRG), byte)
 	# read chr-rom bank(s)
-    _chr = fromstring(fin.read(8192), byte)
+    _chr = fromstring(fin.read(8192 * NumCHR), byte)
 
     if NumCHR == 0:
         _chr = zeros(8192, dtype = byte)

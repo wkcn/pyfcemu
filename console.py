@@ -65,7 +65,7 @@ def NewConsole(path):
 
     console.Mapper = mapper
     console.CPU = NewCPU(console)
-    console.APU = NewAPU(console)
+    console.APU = APU(console)
     console.PPU = PPU(console)
     
     return console, None

@@ -96,9 +96,9 @@ class CPU:
     # addBranchCycles adds a cycle for taking a branch and adds another cycle
     # if the branch jumps to a new page
     def addBranchCycles(self, info):
-        self.Cycles += 1
+        self.Cycles += uint64(1)
         if self.pagesDiffer(info.pc, info.address):
-            self.Cycles += 1
+            self.Cycles += uint64(1)
 
     def compare(self, a, b):
         self.setZN(a - b)

@@ -108,6 +108,29 @@ class PPU:
             address -= uint16(16)
         self.paletteData[address] = value
 
+    def readRegister(self, address):
+        if address == 0x2002:
+            return self.readStatus()
+        elif address == 0x2004:
+            return self.readOAMData()
+        elif address == 0x2007:
+            return self.readData()
+        return byte(0)
+
+    def writeRegister(self, address, value):
+        self.register = value
+        ops = {
+                0x2000: self.writeControl,
+                0x2001: self.writeMask,
+                0x2003: self.writeOAMAddress,
+                0x2004: self.writeOAMData,
+                0x2005: self.writeScroll,
+                0x2006: self.writeAddress,
+                0x2007: self.writeData,
+                0x4014: self.writeDMA
+        }
+        ops[address](value)
+
     def writeControl(self, value):
         self.flagNameTable = (value >> byte(0)) & byte(3)
         self.flagIncrement = (value >> byte(2)) & byte(1)
@@ -127,6 +150,18 @@ class PPU:
         self.flagRedTint = (value >> byte(5)) & byte(1)
         self.flagGreenTint = (value >> byte(6)) & byte(1)
         self.flagBlueTint = (value >> byte(7)) & byte(1)
+
+    def readStatus(self):
+        result = self.register & byte(0x1F)
+        result |= (self.flagSpriteOverflow << byte(5))
+        result |= (self.flagSpriteZeroHit << byte(6))
+        if self.nmiOccurred:
+            result |= (byte(1) << byte(7))
+        self.nmiOccurred = False
+        self.nmiChange()
+        self.w = byte(0)
+        return result
+
 
     def writeOAMAddress(self, value):
         self.oamAddress = value
@@ -187,6 +222,49 @@ class PPU:
         cpu.stall += 513 
         if cpu.Cycles % 2 == 1:
             cpu.stall += 1
+
+    def incrementX(self):
+        if self.v & uint16(0x001F) == 31:
+            self.v &= uint16(0xFFE0)
+            self.v ^= uint16(0x0400)
+        else:
+            self.v += uint16(1)
+
+    def incrementY(self):
+        if self.v & 0x7000 != 0x7000:
+            self.v += uint16(0x1000)
+        else:
+            self.v &= uint16(0x8FFF)
+            y = (self.v & uint16(0x03E0)) >> uint16(5)
+            if y == 29:
+                y = uint16(0)
+                self.v ^= uint16(0x0800)
+            elif y == 31:
+                y = uint16(0)
+            else:
+                y += uint16(1)
+            self.v = (self.v & uint16(0xFC1F)) | (y << uint16(5))
+
+    def copyX(self):
+        self.v = (self.v & uint16(0xFBE0)) | (self.t & uint16(0x041F))
+
+    def copyY(self):
+        self.v = (self.v & uint16(0x841F)) | (self.t & uint16(0x7BE0))
+
+    def nmiChange(self):
+        nmi = (self.nmiOutput and self.nmiOccurred)
+        if nmi and not self.nmiPrevious:
+            self.nmiDelay = byte(15)
+        self.nmiPrevious = nmi
+
+    def setVerticalBlank(self):
+        self.front, self.back = self.back, self.front
+        self.nmiOccurred = True
+        self.nmiChange()
+
+    def clearVerticalBlank(self):
+        self.nmiOccurred = False
+        self.nmiChange()
 
     def fetchNameTableByte(self):
         v = self.v
