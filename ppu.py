@@ -9,57 +9,57 @@ class PPU:
         self.Frame = 0
 
         # storage variables 
-        self.paletteData = zeros(32, dtype = byte)
-        self.nameTableData = zeros(2048, dtype = byte)
-        self.oamData = zeros(256, dtype = byte) 
+        self.paletteData = zeros(32, dtype = uint8)
+        self.nameTableData = zeros(2048, dtype = uint8)
+        self.oamData = zeros(256, dtype = uint8) 
 
         # PPU registers
         self.v = uint16()
         self.t = uint16()
-        self.x = byte()
-        self.w = byte()
-        self.f = byte()
+        self.x = uint8()
+        self.w = uint8()
+        self.f = uint8()
 
-        self.register = byte()
+        self.register = uint8()
 
         self.nmiOccurred = False
         self.nmiOutput = False
         self.nmiPrevious = False
-        self.nmiDelay = byte()
+        self.nmiDelay = uint8()
 
-        self.nameTableByte = byte()
-        self.attributeTableByte = byte()
-        self.lowTileByte = byte()
-        self.highTileByte = byte()
+        self.nameTableuint8 = uint8()
+        self.attributeTableuint8 = uint8()
+        self.lowTileuint8 = uint8()
+        self.highTileuint8 = uint8()
         self.tileData = uint64()
 
         self.spriteCount = 0
         self.spritePatterns = zeros(8, dtype = uint32)
-        self.spritePositions = zeros(8, dtype = byte)
-        self.spritePriorities = zeros(8, dtype = byte)
-        self.spriteIndexes = zeros(8, dtype = byte)
+        self.spritePositions = zeros(8, dtype = uint8)
+        self.spritePriorities = zeros(8, dtype = uint8)
+        self.spriteIndexes = zeros(8, dtype = uint8)
 
-        self.flagNameTable = byte()
-        self.flagIncrement = byte()
-        self.flagSpriteTable = byte()
-        self.flagBackgroundTable = byte()
-        self.flagSpriteSize = byte()
-        self.flagMasterSlave = byte()
+        self.flagNameTable = uint8()
+        self.flagIncrement = uint8()
+        self.flagSpriteTable = uint8()
+        self.flagBackgroundTable = uint8()
+        self.flagSpriteSize = uint8()
+        self.flagMasterSlave = uint8()
 
-        self.flagGrayscale = byte()
-        self.flagShowLeftBackground = byte()
-        self.flagShowLeftSprites = byte()
-        self.flagShowBackground = byte()
-        self.flagShowSprites = byte()
-        self.flagRedTint = byte()
-        self.flagGreenTint = byte()
-        self.flagBlueTint = byte()
+        self.flagGrayscale = uint8()
+        self.flagShowLeftBackground = uint8()
+        self.flagShowLeftSprites = uint8()
+        self.flagShowBackground = uint8()
+        self.flagShowSprites = uint8()
+        self.flagRedTint = uint8()
+        self.flagGreenTint = uint8()
+        self.flagBlueTint = uint8()
 
-        self.flagSpriteZeroHit = byte()
-        self.flagSpriteOverflow = byte()
+        self.flagSpriteZeroHit = uint8()
+        self.flagSpriteOverflow = uint8()
 
-        self.oamAddress = byte()
-        self.bufferedData = byte()
+        self.oamAddress = uint8()
+        self.bufferedData = uint8()
 
         self.front = zeros((256, 240, 3), dtype = uint8)
         self.back = zeros((256, 240, 3), dtype = uint8)
@@ -67,10 +67,10 @@ class PPU:
         self.writeMask(0)
         self.writeOAMAddress(0)
         self.CYCLE_TO_DO = {
-                1: self.fetchNameTableByte,
-                3: self.fetchAttributeTableByte,
-                5: self.fetchLowTileByte,
-                7: self.fetchHighTileByte,
+                1: self.fetchNameTableuint8,
+                3: self.fetchAttributeTableuint8,
+                5: self.fetchLowTileuint8,
+                7: self.fetchHighTileuint8,
                 0: self.storeTileData
         }
 
@@ -115,7 +115,7 @@ class PPU:
             return self.readOAMData()
         elif address == 0x2007:
             return self.readData()
-        return byte(0)
+        return uint8(0)
 
     def writeRegister(self, address, value):
         self.register = value
@@ -132,34 +132,34 @@ class PPU:
         ops[address](value)
 
     def writeControl(self, value):
-        self.flagNameTable = (value >> byte(0)) & byte(3)
-        self.flagIncrement = (value >> byte(2)) & byte(1)
-        self.flagSpriteTable = (value >> byte(3)) & byte(1)
-        self.flagBackgroundTable = (value >> byte(4)) & byte(1)
-        self.flagSpriteSize = (value >> byte(5)) & byte(1)
-        self.flagMasterSlave = (value >> byte(6)) & byte(1)
-        self.nmiOutput = ((value >> byte(7)) & byte(1)) == 1
+        self.flagNameTable = (value >> uint8(0)) & uint8(3)
+        self.flagIncrement = (value >> uint8(2)) & uint8(1)
+        self.flagSpriteTable = (value >> uint8(3)) & uint8(1)
+        self.flagBackgroundTable = (value >> uint8(4)) & uint8(1)
+        self.flagSpriteSize = (value >> uint8(5)) & uint8(1)
+        self.flagMasterSlave = (value >> uint8(6)) & uint8(1)
+        self.nmiOutput = ((value >> uint8(7)) & uint8(1)) == 1
         self.t = (self.t & uint16(0xF3FF)) | ((uint16(value) & uint16(0x03)) << uint16(10)) 
 
     def writeMask(self, value):
-        self.flagGrayscale = (value >> byte(0)) & byte(1)
-        self.flagShowLeftBackground = (value >> byte(1)) & byte(1)
-        self.flagShowLeftSprites = (value >> byte(2)) & byte(1)
-        self.flagShowBackground = (value >> byte(3)) & byte(1)
-        self.flagShowSprites = (value >> byte(4)) & byte(1)
-        self.flagRedTint = (value >> byte(5)) & byte(1)
-        self.flagGreenTint = (value >> byte(6)) & byte(1)
-        self.flagBlueTint = (value >> byte(7)) & byte(1)
+        self.flagGrayscale = (value >> uint8(0)) & uint8(1)
+        self.flagShowLeftBackground = (value >> uint8(1)) & uint8(1)
+        self.flagShowLeftSprites = (value >> uint8(2)) & uint8(1)
+        self.flagShowBackground = (value >> uint8(3)) & uint8(1)
+        self.flagShowSprites = (value >> uint8(4)) & uint8(1)
+        self.flagRedTint = (value >> uint8(5)) & uint8(1)
+        self.flagGreenTint = (value >> uint8(6)) & uint8(1)
+        self.flagBlueTint = (value >> uint8(7)) & uint8(1)
 
     def readStatus(self):
-        result = self.register & byte(0x1F)
-        result |= (self.flagSpriteOverflow << byte(5))
-        result |= (self.flagSpriteZeroHit << byte(6))
+        result = self.register & uint8(0x1F)
+        result |= (self.flagSpriteOverflow << uint8(5))
+        result |= (self.flagSpriteZeroHit << uint8(6))
         if self.nmiOccurred:
-            result |= (byte(1) << byte(7))
+            result |= (uint8(1) << uint8(7))
         self.nmiOccurred = False
         self.nmiChange()
-        self.w = byte(0)
+        self.w = uint8(0)
         return result
 
 
@@ -168,27 +168,27 @@ class PPU:
 
     def readOAMData(value):
         self.oamData[self.oamAddress] = value
-        self.oamAddress += byte(1) 
+        self.oamAddress += uint8(1) 
 
     def writeScroll(value):
         if self.w == 0:
             self.t = (self.t & uint16(0xFFE0)) | (uint16(value) >> uint16(3)) 
-            self.x = value & byte(0x07)
-            self.w = byte(1) 
+            self.x = value & uint8(0x07)
+            self.w = uint8(1) 
         else:
             self.t = (self.t & uint16(0x8FFF)) | ((uint16(value) & uint16(0x07)) << uint16(12)) 
             self.t = (self.t & uint16(0xFC1F)) | ((uint16(value) & uint16(0xF8)) << uint16(2)) 
             # ???
-            self.w = byte(0)
+            self.w = uint8(0)
 
     def writeAddress(self, value):
         if self.w == 0:
             self.t = (self.t & uint16(0x80FF)) | ((uint16(value) & uint16(0x3F)) << uint16(8))
-            self.w = byte(1)
+            self.w = uint8(1)
         else:
             self.t = (self.t & uint16(0xFF00)) | uint16(value)
             self.v = self.t
-            self.w = byte(0)
+            self.w = uint8(0)
 
     def readData(self):
         value = self.Read(self.v)
@@ -217,7 +217,7 @@ class PPU:
         address = uint16(value) << uint16(8)
         for i in range(256):
             self.oamData[self.oamAddress] = cpu.Read(address)
-            self.oamAddress += byte(1) 
+            self.oamAddress += uint8(1) 
             address += uint16(1)
         cpu.stall += 513 
         if cpu.Cycles % 2 == 1:
@@ -254,7 +254,7 @@ class PPU:
     def nmiChange(self):
         nmi = (self.nmiOutput and self.nmiOccurred)
         if nmi and not self.nmiPrevious:
-            self.nmiDelay = byte(15)
+            self.nmiDelay = uint8(15)
         self.nmiPrevious = nmi
 
     def setVerticalBlank(self):
@@ -266,39 +266,39 @@ class PPU:
         self.nmiOccurred = False
         self.nmiChange()
 
-    def fetchNameTableByte(self):
+    def fetchNameTableuint8(self):
         v = self.v
         address = uint16(0x2000) | (v & uint16(0x0FFF))
-        self.nameTableByte = self.Read(address)
+        self.nameTableuint8 = self.Read(address)
 
-    def fetchAttributeTableByte(self):
+    def fetchAttributeTableuint8(self):
         v = self.v
         address = uint16(0x23C0) | (v & uint16(0x0C00)) | ((v >> uint16(4)) & uint16(0x38)) | ((v >> uint16(2)) & uint16(0x07)) 
         shift = ((v >> uint16(4)) & uint16(4)) | (v & uint16(2))
-        self.attributeTableByte = (((self.Read(address) >> byte(shift)) & byte(3)) << byte(2)) 
+        self.attributeTableuint8 = (((self.Read(address) >> uint8(shift)) & uint8(3)) << uint8(2)) 
 
-    def fetchLowTileByte(self):
+    def fetchLowTileuint8(self):
         fineY = (self.v >> uint16(12)) & uint16(7)
         table = self.flagBackgroundTable
-        tile = self.nameTableByte
+        tile = self.nameTableuint8
         address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
-        self.lowTileByte = self.Read(address)
+        self.lowTileuint8 = self.Read(address)
 
-    def fetchHighTileByte(self):
+    def fetchHighTileuint8(self):
         fineY = (self.v >> uint16(12)) & uint16(7)
         table = self.flagBackgroundTable
-        tile = self.nameTableByte
+        tile = self.nameTableuint8
         address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
-        self.highTileByte = self.Read(address + uint16(8))
+        self.highTileuint8 = self.Read(address + uint16(8))
 
     def storeTileData(self):
-        a = self.fetchAttributeTableByte
+        a = self.fetchAttributeTableuint8
         data = uint32(0)
         for i in range(8):
-            p1 = (self.lowTileByte & byte(0x80)) >> byte(7)
-            p2 = (self.highTileByte & byte(0x80)) >> byte(6)
-            self.lowTileByte <<= byte(1)
-            self.highTileByte <<= byte(1)
+            p1 = (self.lowTileuint8 & uint8(0x80)) >> uint8(7)
+            p2 = (self.highTileuint8 & uint8(0x80)) >> uint8(6)
+            self.lowTileuint8 <<= uint8(1)
+            self.highTileuint8 <<= uint8(1)
             data <<= uint32(4)
             data |= uint32(a | p1 | p2)
         self.tileData |= uint64(data)
@@ -308,23 +308,23 @@ class PPU:
 
     def backgroundPixel(self):
         if self.flagShowBackground == 0:
-            return byte(0)
+            return uint8(0)
         data = self.fetchTileData() >> ((uint32(7) - self.x) * uint32(4))
-        return byte(data & byte(0x0F))
+        return uint8(data & uint8(0x0F))
 
     def spritePixel(self): 
         if self.flagShowSprites == 0:
-            return byte(0), byte(0)
+            return uint8(0), uint8(0)
         for i in range(self.spriteCount):
             offset = (self.Cycle - 1) - self.spritePositions[i]
             if offset < 0 or offset > 7:
                 continue
             offset = 7 - offset
-            color = byte((self.spritePatterns[i] >> byte(offset * 4)) & 0x0F)
+            color = uint8((self.spritePatterns[i] >> uint8(offset * 4)) & 0x0F)
             if color % 4 == 0:
                 continue
-            return byte(i), color
-        return byte(0), byte(0)
+            return uint8(i), color
+        return uint8(0), uint8(0)
 
     def renderPixel(self):
         x = self.Cycle - 1
@@ -332,23 +332,23 @@ class PPU:
         background = self.backgroundPixel()
         i, sprite = self.spritePixel()
         if x < 8 and self.flagShowLeftBackground == 0:
-            background = byte(0)
+            background = uint8(0)
         if x < 8 and self.flagShowLeftSprites == 0:
-            sprite = byte(0)
+            sprite = uint8(0)
         b = (background % 4 != 0)
         s = (sprite % 4 != 0)
-        color = byte(0)
+        color = uint8(0)
         if not b and not s:
-            color = byte(0)
+            color = uint8(0)
         elif not b and s:
-            color = sprite | byte(0x10)
+            color = sprite | uint8(0x10)
         elif b and not s:
             color = background
         else:
             if self.spriteIndexes[i] == 0 and x < 255:
-                self.flagSpriteZeroHit = byte(1) 
+                self.flagSpriteZeroHit = uint8(1) 
             if self.spritePriorities[i] == 0:
-                color = sprite | byte(0x10)
+                color = sprite | uint8(0x10)
             else:
                 color = background
         c = Palette[self.readPalette(uint16(color)) % 64]
@@ -366,27 +366,27 @@ class PPU:
             else:
                 if attributes & 0x80 == 0x80:
                     row = 15 - row
-                table = tile & byte(1)
-                tile &= byte(0xFE)
+                table = tile & uint8(1)
+                tile &= uint8(0xFE)
                 if row > 7:
-                    tile += byte(1)
+                    tile += uint8(1)
                     row -= 8
                 address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
-            a = (attributes & byte(3)) << byte(2)
-            lowTileByte = self.Read(address)
-            highTileByte = self.Read(address + uint16(8))
+            a = (attributes & uint8(3)) << uint8(2)
+            lowTileuint8 = self.Read(address)
+            highTileuint8 = self.Read(address + uint16(8))
             data = uint32(0)
             for i in range(8):
                 if attributes & 0x40 == 0x40:
-                    p1 = (lowTileByte & byte(1))
-                    p2 = (highTileByte & byte(1)) << byte(1)
-                    lowTileByte >>= byte(1)
-                    highTileByte >>= byte(1)
+                    p1 = (lowTileuint8 & uint8(1))
+                    p2 = (highTileuint8 & uint8(1)) << uint8(1)
+                    lowTileuint8 >>= uint8(1)
+                    highTileuint8 >>= uint8(1)
                 else:
-                    p1 = (lowTileByte & byte(0x80)) >> byte(7)
-                    p2 = (highTileByte & byte(0x80)) >> byte(6)
-                    lowTileByte <<= byte(1)
-                    highTileByte <<= byte(1)
+                    p1 = (lowTileuint8 & uint8(0x80)) >> uint8(7)
+                    p2 = (highTileuint8 & uint8(0x80)) >> uint8(6)
+                    lowTileuint8 <<= uint8(1)
+                    highTileuint8 <<= uint8(1)
                 data <<= uint32(4)
                 data |= uint32(a | p1 | p2)
             return data
@@ -407,17 +407,17 @@ class PPU:
             if count < 0:
                 self.spritePatterns[count] = self.fetchSpritePattern(i, row)
                 self.spritePositions[count] = x
-                self.spritePriorities[count] = (a >> byte(5)) & byte(1)
-                self.spriteIndexes[count] = byte(i)
+                self.spritePriorities[count] = (a >> uint8(5)) & uint8(1)
+                self.spriteIndexes[count] = uint8(i)
             count += 1
         if count > 8:
             count = 8
-            self.flagSpriteOverflow = byte(1)
+            self.flagSpriteOverflow = uint8(1)
         self.spriteCount = count
 
     def tick(self):
         if self.nmiDelay > 0:
-            self.nmiDelay -= byte(1)
+            self.nmiDelay -= uint8(1)
             if self.nmiDelay == 0 and self.nmiOutput and self.nmiOccurred:
                 self.console.CPU.triggerNMI()
 
@@ -426,7 +426,7 @@ class PPU:
                 self.Cycle = 0
                 self.ScanLine = 0
                 self.Frame += uint64(1)
-                self.f ^= byte(1)
+                self.f ^= uint8(1)
                 return
 
         self.Cycle += 1
@@ -436,7 +436,7 @@ class PPU:
             if self.ScanLine > 261:
                 self.ScanLine = 0
                 self.Frame += uint64(1)
-                self.f ^= byte(1)
+                self.f ^= uint8(1)
 
     def Step(self):
         self.tick()

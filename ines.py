@@ -10,31 +10,31 @@ def LoadNESFile(path):
     if Magic != iNESFileMagic:
         raise RuntimeError("Invalid .nes File")
 
-    NumPRG = byte(ord(NumPRG))
-    NumCHR = byte(ord(NumCHR))
-    Control1 = byte(ord(Control1))
-    Control2 = byte(ord(Control2))
-    NumRAM = byte(ord(NumRAM))
+    NumPRG = uint8(ord(NumPRG))
+    NumCHR = uint8(ord(NumCHR))
+    Control1 = uint8(ord(Control1))
+    Control2 = uint8(ord(Control2))
+    NumRAM = uint8(ord(NumRAM))
 
-    mapper1 = (Control1 >> byte(4))
-    mapper2 = (Control2 >> byte(4))
-    mapper = mapper1 | (mapper2 << byte(4))
+    mapper1 = (Control1 >> uint8(4))
+    mapper2 = (Control2 >> uint8(4))
+    mapper = mapper1 | (mapper2 << uint8(4))
 
-    mirror1 = Control1 & byte(1) 
-    mirror2 = (Control1 >> byte(3)) & byte(1)
-    mirror = mirror1 | (mirror2 << byte(1))
+    mirror1 = Control1 & uint8(1) 
+    mirror2 = (Control1 >> uint8(3)) & uint8(1)
+    mirror = mirror1 | (mirror2 << uint8(1))
 
-    battery = (Control1 >> byte(1)) & byte(1)
+    battery = (Control1 >> uint8(1)) & uint8(1)
 
 	# read trainer if present (unused)
-    if Control1 & byte(4) == byte(4):
+    if Control1 & uint8(4) == uint8(4):
         fin.read(512)
 
 	# read prg-rom bank(s)
-    prg = fromstring(fin.read(16384 * NumPRG), byte)
+    prg = fromstring(fin.read(16384 * NumPRG), uint8)
 	# read chr-rom bank(s)
-    _chr = fromstring(fin.read(8192 * NumCHR), byte)
+    _chr = fromstring(fin.read(8192 * NumCHR), uint8)
 
     if NumCHR == 0:
-        _chr = zeros(8192, dtype = byte)
+        _chr = zeros(8192, dtype = uint8)
     return Cartridge(prg, _chr, mapper, mirror, battery), None

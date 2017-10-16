@@ -51,7 +51,7 @@ class Console:
 
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)
-    ram = zeros(2048, dtype = byte)
+    ram = zeros(2048, dtype = uint8)
     controller1 = NewController()
     controller2 = NewController()
 

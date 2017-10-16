@@ -28,19 +28,19 @@ class CPU:
         self.Memory = Memory(console) # Memory Interface
         self.Cycles = uint64() # Number of Cycles
         self.PC = uint16() # Program Counter
-        self.SP = byte() # Stack Pointer
-        self.A = byte() # Accumulator
-        self.X = byte() # X register
-        self.Y = byte() # Y register
-        self.C = byte() # Carry Flag
-        self.Z = byte() # Zero Flag
-        self.I = byte() # Interrupt Disable Flag 
-        self.D = byte() # Decimal Mode Flag 
-        self.B = byte() # Break Command Flag 
-        self.U = byte() # Unused Flag 
-        self.V = byte() # Overflow Flag 
-        self.N = byte() # Negative Flag 
-        self.interrupt = byte() # interrupt type to perform 
+        self.SP = uint8() # Stack Pointer
+        self.A = uint8() # Accumulator
+        self.X = uint8() # X register
+        self.Y = uint8() # Y register
+        self.C = uint8() # Carry Flag
+        self.Z = uint8() # Zero Flag
+        self.I = uint8() # Interrupt Disable Flag 
+        self.D = uint8() # Decimal Mode Flag 
+        self.B = uint8() # Break Command Flag 
+        self.U = uint8() # Unused Flag 
+        self.V = uint8() # Overflow Flag 
+        self.N = uint8() # Negative Flag 
+        self.interrupt = uint8() # interrupt type to perform 
         self.stall = 0 # Number of Cycles to Stall
         self.table = [stepInfo() for _ in range(256)] 
         self.address = uint16()
@@ -86,8 +86,8 @@ class CPU:
 
     def Reset(self):
         self.PC = self.Read16(uint16(0xFFFC))
-        self.SP = byte(0xFD)
-        self.SetFlags(byte(0x24))
+        self.SP = uint8(0xFD)
+        self.SetFlags(uint8(0x24))
 
     # pagesDiffer returns true if the two addresses reference different pages
     def pagesDiffer(self, a, b):
@@ -103,9 +103,9 @@ class CPU:
     def compare(self, a, b):
         self.setZN(a - b)
         if a >= b:
-            self.C = byte(1)
+            self.C = uint8(1)
         else:
-            self.C = byte(0)
+            self.C = uint8(0)
     
     def Read(self, address):
         if address < 0x2000:
@@ -124,7 +124,7 @@ class CPU:
             pass # [TODO] I/O registers
         elif address >= 0x6000:
             return self.console.Mapper.Read(address)
-        return byte(0)
+        return uint8(0)
 
     def Write(self, address, value):
         if address < 0x2000:
@@ -147,38 +147,38 @@ class CPU:
         elif address >= 0x6000:
             self.console.Mapper.Write(address, value)
 
-    # Read16 reads two bytes using Read to return a double-word value
+    # Read16 reads two uint8s using Read to return a double-word value
     def Read16(self, address):
         lo = uint16(self.Read(address))
         hi = uint16(self.Read(address + uint16(1)))
         return (hi << uint16(8)) | lo
 
-    # read16bug emulates a 6502 bug that caused the low byte to wrap without
+    # read16bug emulates a 6502 bug that caused the low uint8 to wrap without
     def read16bug(self, address):
         a = address
-        b = (a & uint16(0xFF00)) | uint16(byte(a) + byte(1))
+        b = (a & uint16(0xFF00)) | uint16(uint8(a) + uint8(1))
         lo = self.Read(a)
         hi = self.Read(b)
         return (hi << uint16(8)) | lo
 
-    # push pushes a byte onto the stack
+    # push pushes a uint8 onto the stack
     def push(self, value):
         self.Write(uint16(0x100) | uint16(self.SP), value)
-        self.SP -= byte(1) 
+        self.SP -= uint8(1) 
 
-    # pull pops a byte from the stack
+    # pull pops a uint8 from the stack
     def pull(self):
-        self.SP += byte(1)
+        self.SP += uint8(1)
         return self.Read(uint16(0x100) | uint16(self.SP))
 
-    # push16 pushes two bytes onto the stack
+    # push16 pushes two uint8s onto the stack
     def push16(self, value):
-        hi = byte(value >> uint16(8))
-        lo = byte(value & uint16(0xFF))
+        hi = uint8(value >> uint16(8))
+        lo = uint8(value & uint16(0xFF))
         self.push(hi)
         self.push(lo)
 
-    # pull16 pops two bytes from the stack
+    # pull16 pops two uint8s from the stack
     def pull16(self):
         lo = uint16(self.pull())
         hi = uint16(self.pull())
@@ -200,6 +200,7 @@ class CPU:
 
         opcode = self.Read(self.PC)
         mode = instructionModes[opcode]
+        print (self.PC, opcode, mode)
 
         CPU.MODES_FUNC[mode](self)
 
@@ -219,7 +220,7 @@ class CPU:
         self.push16(self.PC)
         self.php(None)
         self.PC = self.Read16(0xFFFA) 
-        self.I = byte(1)
+        self.I = uint8(1)
         self.Cycles += 7
 
     # IRQ - IRQ Interrupt
@@ -227,46 +228,46 @@ class CPU:
         self.push16(self.PC)
         self.php(None)
         self.PC = self.REad16(0xFFFE)
-        self.I = byte(1)
+        self.I = uint8(1)
         self.Cycles += 7
 
     def Flags(self):
-        flags = byte(0)
-        flags |= (self.C << byte(0))
-        flags |= (self.Z << byte(1))
-        flags |= (self.I << byte(2))
-        flags |= (self.D << byte(3))
-        flags |= (self.B << byte(4))
-        flags |= (self.U << byte(5))
-        flags |= (self.V << byte(6))
-        flags |= (self.N << byte(7))
+        flags = uint8(0)
+        flags |= (self.C << uint8(0))
+        flags |= (self.Z << uint8(1))
+        flags |= (self.I << uint8(2))
+        flags |= (self.D << uint8(3))
+        flags |= (self.B << uint8(4))
+        flags |= (self.U << uint8(5))
+        flags |= (self.V << uint8(6))
+        flags |= (self.N << uint8(7))
 
         return flags
 
     # SetFlags sets the processor status flags
     def SetFlags(self, flags):
-        self.C = (flags >> byte(0)) & byte(1)
-        self.Z = (flags >> byte(1)) & byte(1)
-        self.I = (flags >> byte(2)) & byte(1)
-        self.D = (flags >> byte(3)) & byte(1)
-        self.B = (flags >> byte(4)) & byte(1)
-        self.U = (flags >> byte(5)) & byte(1)
-        self.V = (flags >> byte(6)) & byte(1)
-        self.N = (flags >> byte(7)) & byte(1)
+        self.C = (flags >> uint8(0)) & uint8(1)
+        self.Z = (flags >> uint8(1)) & uint8(1)
+        self.I = (flags >> uint8(2)) & uint8(1)
+        self.D = (flags >> uint8(3)) & uint8(1)
+        self.B = (flags >> uint8(4)) & uint8(1)
+        self.U = (flags >> uint8(5)) & uint8(1)
+        self.V = (flags >> uint8(6)) & uint8(1)
+        self.N = (flags >> uint8(7)) & uint8(1)
 
     # setZ sets the zero flag if the argument is zero
     def setZ(self, value):
         if value == 0:
-            self.Z = byte(1)
+            self.Z = uint8(1)
         else:
-            self.Z = byte(0)
+            self.Z = uint8(0)
 
     # setN sets the negative flag if the argument is negative (high bit is set)
     def setN(self, value):
-        if value & byte(0x80) != 0:
-            self.N = byte(1)
+        if value & uint8(0x80) != 0:
+            self.N = uint8(1)
         else:
-            self.N = byte(0)
+            self.N = uint8(0)
 
     # setZN sets the zero flag and the negative flag
     def setZN(self, value):
@@ -290,13 +291,13 @@ class CPU:
         self.A = a + b + c
         self.setZN(self.A)
         if a + b + c > 0xFF:
-            self.C = byte(1)
+            self.C = uint8(1)
         else:
-            self.C = byte(0)
+            self.C = uint8(0)
         if (a ^ b) & 0x80 == 0 and (a ^ self.A) & 0x80 != 0:
-            self.V = byte(1)
+            self.V = uint8(1)
         else:
-            self.V = byte(0)
+            self.V = uint8(0)
 
     # AND - Logical AND
     def _and(self, info):
@@ -306,13 +307,13 @@ class CPU:
     # ASL - Arithmetic Shift Left
     def asl(self, info):
         if info.mode == modeAccumulator:
-            self.C = (self.A >> byte(7)) & byte(1)
-            self.A <<= byte(1)
+            self.C = (self.A >> uint8(7)) & uint8(1)
+            self.A <<= uint8(1)
             self.setZN(self.A)
         else:
             value = self.Read(info.address)
-            self.C = (value >> byte(7)) & 1
-            value <<= byte(1)
+            self.C = (value >> uint8(7)) & 1
+            value <<= uint8(1)
             self.Write(info.address, value)
             self.setZN(value)
 
@@ -337,7 +338,7 @@ class CPU:
     # BIT - Bit Test
     def bit(self, info):
         value = self.Read(info.address)
-        self.V = (value >> byte(6)) & byte(1)
+        self.V = (value >> uint8(6)) & uint8(1)
         self.setZ(value & self.A)
         self.setN(value)
         
@@ -380,19 +381,19 @@ class CPU:
 
     # CLC - Clear Carray Flag
     def clc(self, info):
-        self.C = byte(0)
+        self.C = uint8(0)
 
     # CLD - Clear Decimal Mode
     def cld(self, info):
-        self.D = byte(0)
+        self.D = uint8(0)
 
     # CLI - Clear Interrupt Disable
     def cli(self, info):
-        self.I = byte(0)
+        self.I = uint8(0)
 
     # CLV - Clear Overflow Flag
     def clv(self, info):
-        self.V = byte(0)
+        self.V = uint8(0)
 
     # CMP - Compare
     def cmp(self, info):
@@ -411,18 +412,18 @@ class CPU:
 
     # DEC - Decrement Memory
     def dec(self, info):
-        value = self.Read(info.address) - byte(1)
+        value = self.Read(info.address) - uint8(1)
         self.Write(info.address, value)
         self.setZN(value)
 
     # DEX - Decrement X Register
     def dex(self, info):
-        self.X -= byte(1)
+        self.X -= uint8(1)
         self.setZN(self.X)
 
     # DEY - Decrement Y Register
     def dey(self, info):
-        self.Y -= byte(1)
+        self.Y -= uint8(1)
         self.setZN(self.Y)
 
     # EOR - Exclusive OR
@@ -432,18 +433,18 @@ class CPU:
 
     # INC - Increment Memory
     def inc(self, info):
-        value = self.Read(info.address) + byte(1)
+        value = self.Read(info.address) + uint8(1)
         self.Write(info.address, value)
         self.setZN(value)
 
     # INX - Increment X Register
     def inx(self, info):
-        self.X += byte(1)
+        self.X += uint8(1)
         self.setZN(self.X)
 
     # INY - Increment Y Register
     def iny(self, info):
-        self.Y += byte(1)
+        self.Y += uint8(1)
         self.setZN(self.Y)
 
     # JMP - Jump
@@ -472,13 +473,13 @@ class CPU:
     # LSR - Logical Shift Right
     def lsr(self, info):
         if info.mode == modeAccumulator:
-            self.C = self.A & byte(1)
-            self.A >>= byte(1)
+            self.C = self.A & uint8(1)
+            self.A >>= uint8(1)
             self.setZN(self.A)
         else:
             value = slef.Read(info.address)
-            self.C = value & byte(1)
-            value >>= byte(1)
+            self.C = value & uint8(1)
+            value >>= uint8(1)
             self.Write(info.address, value)
             self.setZN(value)
 
@@ -497,7 +498,7 @@ class CPU:
 
     # PHP - Push Processor Status
     def php(self, info):
-        self.push(self.Flags() | byte(0x10))
+        self.push(self.Flags() | uint8(0x10))
 
     # PLA - Pull Accumulator
     def pla(self, info):
@@ -506,20 +507,20 @@ class CPU:
 
     # PLP - Pull Processor Status
     def plp(self, info):
-        self.SetFlags((self.pull() & byte(0xEF)) | byte(0x20))
+        self.SetFlags((self.pull() & uint8(0xEF)) | uint8(0x20))
 
     # ROL - Rotate Left
     def rol(self, info):
         if info.mode == modeAccumulator:
             c = self.C
-            self.C = (self.A >> byte(7)) & byte(1)
-            self.A = (self.A << byte(1)) | c
+            self.C = (self.A >> uint8(7)) & uint8(1)
+            self.A = (self.A << uint8(1)) | c
             self.setZN(self.A)
         else:
             c = self.C
             value = self.Read(info.address)
-            self.C = (value >> byte(7)) & byte(1)
-            value = (value << byte(1)) | c
+            self.C = (value >> uint8(7)) & uint8(1)
+            value = (value << uint8(1)) | c
             self.Write(info.address, value)
             self.setZN(value)
 
@@ -527,20 +528,20 @@ class CPU:
     def ror(self, info):
         if info.mode == modeAccumulator:
             c = self.C
-            self.C = (self.A & byte(1))
-            self.A = (self.A >> byte(1)) | (c << byte(7))
+            self.C = (self.A & uint8(1))
+            self.A = (self.A >> uint8(1)) | (c << uint8(7))
             self.setZN(self.A)
         else:
             c = self.C
             value = self.Read(info.address)
-            self.C = value & byte(1)
-            value = (value >> byte(1)) | (c << byte(7))
+            self.C = value & uint8(1)
+            value = (value >> uint8(1)) | (c << uint8(7))
             self.Write(info.address, value)
             self.setZN(value)
 
     # RTI - Return from Interrupt
     def rti(self, info):
-        self.SetFlags((self.pull() & byte(0xEF)) | byte(0x20))
+        self.SetFlags((self.pull() & uint8(0xEF)) | uint8(0x20))
         self.PC = self.pull16()
 
     # RTS - Return from Subroutine
@@ -552,29 +553,29 @@ class CPU:
         a = self.A
         b = self.Read(info.address)
         c = self.C
-        self.A = a - b - (byte(1) - c)
+        self.A = a - b - (uint8(1) - c)
         self.setZN(self.A)
         if int(a) - int(b) - int(1-c) >= 0:
-            self.C = byte(1)
+            self.C = uint8(1)
         else:
-            self.C = byte(0)
+            self.C = uint8(0)
 
         if (a ^ b) & 0x80 != 0 and (a * self.A) & 0x80 != 0:
-            self.V = byte(1)
+            self.V = uint8(1)
         else:
-            self.V = byte(0)
+            self.V = uint8(0)
 
     # SEC - Set Carry Flag
     def sec(self, info):
-        self.C = byte(1)
+        self.C = uint8(1)
 
     # SED - Set Decimal Flag
     def sed(self, info):
-        self.D = byte(1)
+        self.D = uint8(1)
 
     # SEI - Set Interrupt Disable
     def sei(self, info):
-        self.I = byte(1)
+        self.I = uint8(1)
         
     # STA - Store Accumulator
     def sta(self, info):
