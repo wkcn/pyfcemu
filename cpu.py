@@ -187,7 +187,7 @@ class CPU:
     def Step(self):
         if self.stall > 0:
             self.stall -= 1
-            return 1
+            return uint64(1)
 
         cycles = self.Cycles
 
@@ -198,9 +198,17 @@ class CPU:
 
         self.interrupt = interruptNone
 
+        '''
+        print ("PC: %4x" % self.PC)
+        print ("Memory: ")
+        s = ""
+        for i in range(16):
+            s += "%.2X " % self.Read(self.PC + uint16(i))
+        print (s)
+        input()
+        '''
         opcode = self.Read(self.PC)
         mode = instructionModes[opcode]
-        print (self.PC, opcode, mode)
 
         CPU.MODES_FUNC[mode](self)
 
@@ -213,13 +221,14 @@ class CPU:
         info = stepInfo(self.address, self.PC, mode)
         self.table[opcode](info)
 
+        print (self.Cycles, cycles, self.PC, opcode, mode)
         return self.Cycles - cycles
     
     # NMI - Non-Maskable Interrupt
     def nmi(self):
         self.push16(self.PC)
         self.php(None)
-        self.PC = self.Read16(0xFFFA) 
+        self.PC = self.Read16(uint16(0xFFFA))
         self.I = uint8(1)
         self.Cycles += 7
 
@@ -227,7 +236,7 @@ class CPU:
     def irq(self):
         self.push16(self.PC)
         self.php(None)
-        self.PC = self.REad16(0xFFFE)
+        self.PC = self.Read16(uint16(0xFFFE))
         self.I = uint8(1)
         self.Cycles += 7
 

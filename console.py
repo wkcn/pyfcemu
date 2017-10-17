@@ -22,7 +22,7 @@ class Console:
     
     def Step(self):
         cpuCycles = self.CPU.Step()
-        ppuCycles = cpuCycles * uint64(3)
+        ppuCycles = cpuCycles * uint64(3 )
         for i in range(ppuCycles):
             self.PPU.Step()
             self.Mapper.Step()
