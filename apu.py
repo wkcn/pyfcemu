@@ -525,6 +525,7 @@ class APU:
         return pulseOut + tndOut
 
     def stepFrameCounter(apu):
+        print (apu.framePeriod, apu.frameValue)
         if apu.framePeriod == 4:
             apu.frameValue = (apu.frameValue + uint8(1)) % uint8(4)
             if apu.frameValue in [0, 2]:
@@ -574,6 +575,7 @@ class APU:
         apu.noise.stepLength()
 
     def fireIRQ(apu):
+        print ("FIRE")
         if apu.frameIRQ:
             apu.console.CPU.triggerIRQ()
 
@@ -583,6 +585,7 @@ class APU:
         return uint8(0)
 
     def writeRegister(apu, address, value):
+        print ("WR", address, value)
         if address == 0x4000:
             apu.pulse1.writeControl(value)
         elif address == 0x4001:
@@ -654,11 +657,12 @@ class APU:
             apu.noise.lengthValue = uint8(0)
         if not apu.dmc.enabled:
             apu.dmc.currentLength = uint16(0)
-        elif  apu.dmc.currentLength == 0:
+        elif apu.dmc.currentLength == 0:
             apu.dmc.restart()
 
     def writeFrameCounter(apu, value):
         apu.framePeriod = uint8(4) + (value>>uint8(7))&uint8(1)
+        print ("UPDATE writeFrameCounter", apu.framePeriod, value)
         apu.frameIRQ = ((value>>uint8(6))&uint8(1) == 0)
         if apu.framePeriod == 5:
             apu.stepEnvelope()

@@ -92,6 +92,7 @@ class PPU:
             return self.console.PPU.readPalette(address % uint16(32))
         else:
             raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
+        return byte(0)
 
     def Write(self, address, value):
         address = address % uint16(0x4000)
@@ -146,6 +147,7 @@ class PPU:
         self.flagSpriteSize = (value >> uint8(5)) & uint8(1)
         self.flagMasterSlave = (value >> uint8(6)) & uint8(1)
         self.nmiOutput = (((value >> uint8(7)) & uint8(1)) == 1)
+        self.nmiChange()
         self.t = ((self.t & uint16(0xF3FF)) | ((uint16(value) & uint16(0x03)) << uint16(10)))
 
     def writeMask(self, value):
@@ -169,11 +171,13 @@ class PPU:
         self.w = uint8(0)
         return result
 
-
     def writeOAMAddress(self, value):
         self.oamAddress = value
 
-    def readOAMData(value):
+    def readOAMData(self):
+        return self.oamData[self.oamAddress]
+
+    def writeOAMData(self, value):
         self.oamData[self.oamAddress] = value
         self.oamAddress += uint8(1) 
 
@@ -299,9 +303,9 @@ class PPU:
         self.highTileuint8 = self.Read(address + uint16(8))
 
     def storeTileData(self):
-        a = self.fetchAttributeTableuint8
         data = uint32(0)
         for i in range(8):
+            a = self.attributeTableByte # todo
             p1 = (self.lowTileuint8 & uint8(0x80)) >> uint8(7)
             p2 = (self.highTileuint8 & uint8(0x80)) >> uint8(6)
             self.lowTileuint8 <<= uint8(1)

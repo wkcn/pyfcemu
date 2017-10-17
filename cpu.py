@@ -221,7 +221,10 @@ class CPU:
         info = stepInfo(self.address, self.PC, mode)
         self.table[opcode](info)
 
-        print (self.Cycles, cycles, self.PC, opcode, mode)
+        s = ""
+        for i in range(16):
+            s += "%.2X " % self.Read(self.PC + uint16(i))
+        print (self.Cycles, cycles, "%.4X" % self.PC, "%.2X" % opcode, mode, s)
         return self.Cycles - cycles
     
     # NMI - Non-Maskable Interrupt
@@ -230,7 +233,7 @@ class CPU:
         self.php(None)
         self.PC = self.Read16(uint16(0xFFFA))
         self.I = uint8(1)
-        self.Cycles += 7
+        self.Cycles += uint64(7)
 
     # IRQ - IRQ Interrupt
     def irq(self):
@@ -238,7 +241,7 @@ class CPU:
         self.php(None)
         self.PC = self.Read16(uint16(0xFFFE))
         self.I = uint8(1)
-        self.Cycles += 7
+        self.Cycles += uint64(7)
 
     def Flags(self):
         flags = uint8(0)
@@ -463,6 +466,7 @@ class CPU:
     # JSR - Jump to Subroutine
     def jsr(self, info):
         self.push16(self.PC - uint16(1))
+        self.PC = info.address
 
     # LDA - Load Accumulator
     def lda(self, info):
