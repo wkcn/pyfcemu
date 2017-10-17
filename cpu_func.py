@@ -27,7 +27,7 @@ def modeIndirectFunc(cpu):
     cpu.address = cpu.read16bug(cpu.Read16(cpu.PC + uint16(1)))
 
 def modeIndirectIndexedFunc(cpu):
-    cpu.address = cpu.read16bug(uint16(cpu.Read(cpu.PC + uint16(1))) + uint16(cpu.Y))
+    cpu.address = cpu.read16bug(uint16(cpu.Read(cpu.PC + uint16(1)))) + uint16(cpu.Y)
     cpu.pageCrossed = cpu.pagesDiffer(cpu.address - uint16(cpu.Y), cpu.address)
 
 def modeRelativeFunc(cpu):

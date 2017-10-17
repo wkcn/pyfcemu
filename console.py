@@ -59,8 +59,8 @@ class Console:
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)
     ram = zeros(2048, dtype = uint8)
-    controller1 = NewController()
-    controller2 = NewController()
+    controller1 = Controller()
+    controller2 = Controller()
 
     console = Console()
     console.Cartridge = cartridge

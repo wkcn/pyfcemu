@@ -84,6 +84,22 @@ class CPU:
 		c.sed, c.sbc, c.nop, c.isc, c.nop, c.sbc, c.inc, c.isc,
 	]
 
+    def PrintInstruction(cpu):
+        opcode = cpu.Read(cpu.PC)
+        _bytes = instructionSizes[opcode]
+        name = instructionNames[opcode]
+        w0 = ("%02X"% cpu.Read(cpu.PC+0))
+        w1 = ("%02X"% cpu.Read(cpu.PC+1))
+        w2 = ("%02X"% cpu.Read(cpu.PC+2))
+        if _bytes < 2:
+            w1 = "  "
+        if _bytes < 3:
+            w2 = "  "
+        print(
+            "%.4X  %s %s %s  %6s A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%3d" % (cpu.PC, w0, w1, w2, name,
+            cpu.A, cpu.X, cpu.Y, cpu.Flags(), cpu.SP, (cpu.Cycles*3)%341))
+
+
     def Reset(self):
         self.PC = self.Read16(uint16(0xFFFC))
         self.SP = uint8(0xFD)
@@ -212,6 +228,7 @@ class CPU:
 
         CPU.MODES_FUNC[mode](self)
 
+        self.PrintInstruction()
         self.PC += instructionSizes[opcode]
         self.Cycles += instructionCycles[opcode]
 
@@ -221,10 +238,12 @@ class CPU:
         info = stepInfo(self.address, self.PC, mode)
         self.table[opcode](info)
 
+        '''
         s = ""
         for i in range(16):
             s += "%.2X " % self.Read(self.PC + uint16(i))
         print (self.Cycles, cycles, "%.4X" % self.PC, "%.2X" % opcode, mode, s)
+        '''
         return self.Cycles - cycles
     
     # NMI - Non-Maskable Interrupt
@@ -302,7 +321,7 @@ class CPU:
         c = self.C
         self.A = a + b + c
         self.setZN(self.A)
-        if a + b + c > 0xFF:
+        if int(a) + int(b) + int(c) > 0xFF:
             self.C = uint8(1)
         else:
             self.C = uint8(0)
@@ -343,7 +362,7 @@ class CPU:
 
     # BEQ - Branch if Equal
     def beq(self, info):
-        if self.Z == 0:
+        if self.Z != 0:
             self.PC = info.address
             self.addBranchCycles(info)
 
@@ -440,7 +459,7 @@ class CPU:
 
     # EOR - Exclusive OR
     def eor(self, info):
-        self.A = self.A & self.Read(info.address)
+        self.A = self.A ^ self.Read(info.address)
         self.setZN(self.A)
 
     # INC - Increment Memory

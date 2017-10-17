@@ -1,6 +1,5 @@
 from util import *
 from console import *
-import time
 import glfw
 from OpenGL.GL import *
 from gameview import *
@@ -9,8 +8,8 @@ class Director:
     def __init__(self):
         self.window = None
         self.audio = None
-        self.view = View()
-        self.menuView = View()
+        self.view = View() 
+        self.menuView = View() 
     def Start(self, paths):
         if len(paths) == 1:
             self.PlayGame(paths[0])
@@ -37,13 +36,13 @@ class Director:
         self.view = view
         if self.view is not None:
             self.view.Enter()
-        self.timestamp = time.time()
+        self.timestamp = glfw.get_time()
 
     def SetTitle(self, title):
         glfw.set_window_title(self.window, title)
     def Step(self):
         glClear(GL_COLOR_BUFFER_BIT)
-        timestamp = time.time()
+        timestamp = glfw.get_time() 
         dt = timestamp - self.timestamp
         self.timestamp = timestamp
         if self.view is not None:

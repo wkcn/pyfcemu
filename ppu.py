@@ -1,5 +1,6 @@
 from numpy import *
 from memory import *
+from palette import *
 
 class PPU:
     def __init__(self, console):
@@ -27,10 +28,10 @@ class PPU:
         self.nmiPrevious = False
         self.nmiDelay = uint8()
 
-        self.nameTableuint8 = uint8()
-        self.attributeTableuint8 = uint8()
-        self.lowTileuint8 = uint8()
-        self.highTileuint8 = uint8()
+        self.nameTableByte = uint8()
+        self.attributeTableByte = uint8()
+        self.lowTileByte = uint8()
+        self.highTileByte = uint8()
         self.tileData = uint64()
 
         self.spriteCount = 0
@@ -61,16 +62,11 @@ class PPU:
         self.oamAddress = uint8()
         self.bufferedData = uint8()
 
-        self.front = zeros((256, 240, 3), dtype = uint8)
-        self.back = zeros((256, 240, 3), dtype = uint8)
+        # width: 256
+        # height: 240
+        self.front = zeros((240, 256, 3), dtype = uint8)
+        self.back = zeros((240, 256, 3), dtype = uint8)
 
-        self.CYCLE_TO_DO = {
-                1: self.fetchNameTableuint8,
-                3: self.fetchAttributeTableuint8,
-                5: self.fetchLowTileuint8,
-                7: self.fetchHighTileuint8,
-                0: self.storeTileData
-        }
         self.Reset()
 
     def Reset(self):
@@ -181,7 +177,7 @@ class PPU:
         self.oamData[self.oamAddress] = value
         self.oamAddress += uint8(1) 
 
-    def writeScroll(value):
+    def writeScroll(self, value):
         if self.w == 0:
             self.t = (self.t & uint16(0xFFE0)) | (uint16(value) >> uint16(3)) 
             self.x = value & uint8(0x07)
@@ -277,39 +273,39 @@ class PPU:
         self.nmiOccurred = False
         self.nmiChange()
 
-    def fetchNameTableuint8(self):
+    def fetchNameTableByte(self):
         v = self.v
         address = uint16(0x2000) | (v & uint16(0x0FFF))
-        self.nameTableuint8 = self.Read(address)
+        self.nameTableByte = self.Read(address)
 
-    def fetchAttributeTableuint8(self):
+    def fetchAttributeTableByte(self):
         v = self.v
         address = uint16(0x23C0) | (v & uint16(0x0C00)) | ((v >> uint16(4)) & uint16(0x38)) | ((v >> uint16(2)) & uint16(0x07)) 
         shift = ((v >> uint16(4)) & uint16(4)) | (v & uint16(2))
-        self.attributeTableuint8 = (((self.Read(address) >> uint8(shift)) & uint8(3)) << uint8(2)) 
+        self.attributeTableByte = (((self.Read(address) >> uint8(shift)) & uint8(3)) << uint8(2)) 
 
-    def fetchLowTileuint8(self):
+    def fetchLowTileByte(self):
         fineY = (self.v >> uint16(12)) & uint16(7)
         table = self.flagBackgroundTable
-        tile = self.nameTableuint8
+        tile = self.nameTableByte
         address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
-        self.lowTileuint8 = self.Read(address)
+        self.lowTileByte = self.Read(address)
 
-    def fetchHighTileuint8(self):
+    def fetchHighTileByte(self):
         fineY = (self.v >> uint16(12)) & uint16(7)
         table = self.flagBackgroundTable
-        tile = self.nameTableuint8
+        tile = self.nameTableByte
         address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + fineY
-        self.highTileuint8 = self.Read(address + uint16(8))
+        self.highTileByte = self.Read(address + uint16(8))
 
     def storeTileData(self):
         data = uint32(0)
         for i in range(8):
             a = self.attributeTableByte # todo
-            p1 = (self.lowTileuint8 & uint8(0x80)) >> uint8(7)
-            p2 = (self.highTileuint8 & uint8(0x80)) >> uint8(6)
-            self.lowTileuint8 <<= uint8(1)
-            self.highTileuint8 <<= uint8(1)
+            p1 = (self.lowTileByte & uint8(0x80)) >> uint8(7)
+            p2 = (self.highTileByte & uint8(0x80)) >> uint8(6)
+            self.lowTileByte <<= uint8(1)
+            self.highTileByte <<= uint8(1)
             data <<= uint32(4)
             data |= uint32(a | p1 | p2)
         self.tileData |= uint64(data)
@@ -363,7 +359,7 @@ class PPU:
             else:
                 color = background
         c = Palette[self.readPalette(uint16(color)) % 64]
-        self.back.SetRGBA(x, y, c)
+        self.back[y,x] = c
 
     def fetchSpritePattern(self, i, row):
         tile = self.oamData[i * 4 + 1]
@@ -384,20 +380,20 @@ class PPU:
                 row -= 8
             address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
         a = (attributes & uint8(3)) << uint8(2)
-        lowTileuint8 = self.Read(address)
-        highTileuint8 = self.Read(address + uint16(8))
+        lowTileByte = self.Read(address)
+        highTileByte = self.Read(address + uint16(8))
         data = uint32(0)
         for i in range(8):
             if attributes & 0x40 == 0x40:
-                p1 = (lowTileuint8 & uint8(1))
-                p2 = (highTileuint8 & uint8(1)) << uint8(1)
-                lowTileuint8 >>= uint8(1)
-                highTileuint8 >>= uint8(1)
+                p1 = (lowTileByte & uint8(1))
+                p2 = (highTileByte & uint8(1)) << uint8(1)
+                lowTileByte >>= uint8(1)
+                highTileByte >>= uint8(1)
             else:
-                p1 = (lowTileuint8 & uint8(0x80)) >> uint8(7)
-                p2 = (highTileuint8 & uint8(0x80)) >> uint8(6)
-                lowTileuint8 <<= uint8(1)
-                highTileuint8 <<= uint8(1)
+                p1 = (lowTileByte & uint8(0x80)) >> uint8(7)
+                p2 = (highTileByte & uint8(0x80)) >> uint8(6)
+                lowTileByte <<= uint8(1)
+                highTileByte <<= uint8(1)
             data <<= uint32(4)
             data |= uint32(a | p1 | p2)
         return data
@@ -466,7 +462,17 @@ class PPU:
                 self.renderPixel()
             if renderLine and fetchCycle:
                 self.tileData <<= uint64(4)
-                self.CYCLE_TO_DO[self.Cycle % 8]()
+                c = self.Cycle % 8
+                if c == 1:
+                    self.fetchNameTableByte()
+                elif c == 3:
+                    self.fetchAttributeTableByte()
+                elif c == 5:
+                    self.fetchLowTileByte()
+                elif c == 7:
+                    self.fetchHighTileByte()
+                elif c == 0:
+                    self.storeTileData()
 
             if preLine and self.Cycle >= 280 and self.Cycle <= 304:
                 self.copyY()
