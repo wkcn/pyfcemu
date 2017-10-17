@@ -269,7 +269,6 @@ class Pulse:
         encoder.Encode(p.envelopeValue)
         encoder.Encode(p.envelopeVolume)
         encoder.Encode(p.constantVolume)
-        return nil
 
     def Load(p, decoder):
         decoder.Decode(p.enabled)
@@ -294,320 +293,278 @@ class Pulse:
         decoder.Decode(p.envelopeVolume)
         decoder.Decode(p.constantVolume)
 
-        def writeControl(p, value):
-            p.dutyMode = (value >> uint8(6)) & uint8(3)
-            p.lengthEnabled = ((value>>uint8(5))&uint8(1) == 0)
-            p.envelopeLoop = ((value>>5)&1 == 1)
-            p.envelopeEnabled = ((value>>4)&1 == 0)
-            p.envelopePeriod = value & uint8(15)
-            p.constantVolume = value & uint8(15)
-            p.envelopeStart = True
+    def writeControl(p, value):
+        p.dutyMode = (value >> uint8(6)) & uint8(3)
+        p.lengthEnabled = ((value>>uint8(5))&uint8(1) == 0)
+        p.envelopeLoop = ((value>>5)&1 == 1)
+        p.envelopeEnabled = ((value>>4)&1 == 0)
+        p.envelopePeriod = value & uint8(15)
+        p.constantVolume = value & uint8(15)
+        p.envelopeStart = True
 
-        def writeSweep(p, value):
-            p.sweepEnabled = ((value>>7)&1 == 1)
-            p.sweepPeriod = ((value>>uint8(4))&uint8(7) + uint8(1))
-            p.sweepNegate = ((value>>3)&1 == 1)
-            p.sweepShift = (value & byte(7))
-            p.sweepReload = True
+    def writeSweep(p, value):
+        p.sweepEnabled = ((value>>7)&1 == 1)
+        p.sweepPeriod = ((value>>uint8(4))&uint8(7) + uint8(1))
+        p.sweepNegate = ((value>>3)&1 == 1)
+        p.sweepShift = (value & uint8(7))
+        p.sweepReload = True
 
-        def writeTimerLow(p, value):
-            p.timerPeriod = (p.timerPeriod & uint16(0xFF00)) | uint16(value)
+    def writeTimerLow(p, value):
+        p.timerPeriod = (p.timerPeriod & uint16(0xFF00)) | uint16(value)
 
-        def writeTimerHigh(p, value):
-            p.lengthValue = lengthTable[value>>byte(3)]
-            p.timerPeriod = (p.timerPeriod & uint16(0x00FF)) | (uint16(value&uint8(7)) << uint16(8))
-            p.envelopeStart = true
-            p.dutyValue = byte(0)
+    def writeTimerHigh(p, value):
+        p.lengthValue = lengthTable[value>>uint8(3)]
+        p.timerPeriod = (p.timerPeriod & uint16(0x00FF)) | (uint16(value&uint8(7)) << uint16(8))
+        p.envelopeStart = true
+        p.dutyValue = uint8(0)
 
-        def stepTimer(p):
-            if p.timerValue == 0:
-                p.timerValue = p.timerPeriod
-                p.dutyValue = (p.dutyValue + byte(1)) % byte(8)
-            else:
-                p.timerValue -= uint16(1)
+    def stepTimer(p):
+        if p.timerValue == 0:
+            p.timerValue = p.timerPeriod
+            p.dutyValue = (p.dutyValue + uint8(1)) % uint8(8)
+        else:
+            p.timerValue -= uint16(1)
 
-        def stepEnvelope(p):
-            if p.envelopeStart:
-                p.envelopeVolume = byte(15)
-                p.envelopeValue = p.envelopePeriod
-                p.envelopeStart = false
-            elif p.envelopeValue > 0:
-                p.envelopeValue -= byte(1)
-            else:
-                if p.envelopeVolume > 0:
-                    p.envelopeVolume -= byte(1)
-                elif p.envelopeLoop:
-                    p.envelopeVolume = byte(15)
-                p.envelopeValue = p.envelopePeriod
+    def stepEnvelope(p):
+        if p.envelopeStart:
+            p.envelopeVolume = uint8(15)
+            p.envelopeValue = p.envelopePeriod
+            p.envelopeStart = false
+        elif p.envelopeValue > 0:
+            p.envelopeValue -= uint8(1)
+        else:
+            if p.envelopeVolume > 0:
+                p.envelopeVolume -= uint8(1)
+            elif p.envelopeLoop:
+                p.envelopeVolume = uint8(15)
+            p.envelopeValue = p.envelopePeriod
 
-        def stepSweep(p):
-            if p.sweepReload:
-                if p.sweepEnabled and p.sweepValue == 0: 
-                    p.sweep()
-                p.sweepValue = p.sweepPeriod
-                p.sweepReload = false
-            elif p.sweepValue > 0:
-                p.sweepValue -= byte(1)
-            else:
-                if p.sweepEnabled:
-                    p.sweep()
-                p.sweepValue = p.sweepPeriod
+    def stepSweep(p):
+        if p.sweepReload:
+            if p.sweepEnabled and p.sweepValue == 0: 
+                p.sweep()
+            p.sweepValue = p.sweepPeriod
+            p.sweepReload = false
+        elif p.sweepValue > 0:
+            p.sweepValue -= uint8(1)
+        else:
+            if p.sweepEnabled:
+                p.sweep()
+            p.sweepValue = p.sweepPeriod
 
-        def stepLength(p):
-            if p.lengthEnabled and p.lengthValue > 0:
-                p.lengthValue -= byte(1) 
+    def stepLength(p):
+        if p.lengthEnabled and p.lengthValue > 0:
+            p.lengthValue -= uint8(1) 
 
-        def sweep(p):
-            delta = (p.timerPeriod >> uint16(p.sweepShift))
-            if p.sweepNegate:
-                p.timerPeriod -= delta
-                if p.channel == 1:
-                    p.timerPeriod -= uint16(1)
-            else:
-                p.timerPeriod += delta
+    def sweep(p):
+        delta = (p.timerPeriod >> uint16(p.sweepShift))
+        if p.sweepNegate:
+            p.timerPeriod -= delta
+            if p.channel == 1:
+                p.timerPeriod -= uint16(1)
+        else:
+            p.timerPeriod += delta
 
-        def output(p):
-            if not p.enabled:
-                return uint8(0)
-            if p.lengthValue == 0:
-                return uint8(0)
-            if dutyTable[p.dutyMode][p.dutyValue] == 0:
-                return uint8(0)
-            if p.timerPeriod < 8 or p.timerPeriod > 0x7FF:
-                return uint8(0)
-            if p.envelopeEnabled:
-                return p.envelopeVolume
-            else:
-                return p.constantVolume
+    def output(p):
+        if not p.enabled:
+            return uint8(0)
+        if p.lengthValue == 0:
+            return uint8(0)
+        if dutyTable[p.dutyMode][p.dutyValue] == 0:
+            return uint8(0)
+        if p.timerPeriod < 8 or p.timerPeriod > 0x7FF:
+            return uint8(0)
+        if p.envelopeEnabled:
+            return p.envelopeVolume
+        else:
+            return p.constantVolume
 
-// Triangle
+class Triangle:
+    def __init__(t):
+        t.enabled       = False
+        t.lengthEnabled = False 
+        t.lengthValue   = uint8()
+        t.timerPeriod   = uint16()
+        t.timerValue    = uint16()
+        t.dutyValue     = uint8()
+        t.counterPeriod = uint8()
+        t.counterValue  = uint8()
+        t.counterReload = False 
 
-type Triangle struct {
-	enabled       bool
-	lengthEnabled bool
-	lengthValue   uint8
-	timerPeriod   uint16
-	timerValue    uint16
-	dutyValue     uint8
-	counterPeriod uint8
-	counterValue  uint8
-	counterReload bool
-}
+    def Save(t, encoder):
+        encoder.Encode(t.enabled)
+        encoder.Encode(t.lengthEnabled)
+        encoder.Encode(t.lengthValue)
+        encoder.Encode(t.timerPeriod)
+        encoder.Encode(t.timerValue)
+        encoder.Encode(t.dutyValue)
+        encoder.Encode(t.counterPeriod)
+        encoder.Encode(t.counterValue)
+        encoder.Encode(t.counterReload)
 
-func (t *Triangle) Save(encoder *gob.Encoder) error {
-	encoder.Encode(t.enabled)
-	encoder.Encode(t.lengthEnabled)
-	encoder.Encode(t.lengthValue)
-	encoder.Encode(t.timerPeriod)
-	encoder.Encode(t.timerValue)
-	encoder.Encode(t.dutyValue)
-	encoder.Encode(t.counterPeriod)
-	encoder.Encode(t.counterValue)
-	encoder.Encode(t.counterReload)
-	return nil
-}
+    def Load(t, decoder):
+        decoder.Decode(t.enabled)
+        decoder.Decode(t.lengthEnabled)
+        decoder.Decode(t.lengthValue)
+        decoder.Decode(t.timerPeriod)
+        decoder.Decode(t.timerValue)
+        decoder.Decode(t.dutyValue)
+        decoder.Decode(t.counterPeriod)
+        decoder.Decode(t.counterValue)
+        decoder.Decode(t.counterReload)
 
-func (t *Triangle) Load(decoder *gob.Decoder) error {
-	decoder.Decode(&t.enabled)
-	decoder.Decode(&t.lengthEnabled)
-	decoder.Decode(&t.lengthValue)
-	decoder.Decode(&t.timerPeriod)
-	decoder.Decode(&t.timerValue)
-	decoder.Decode(&t.dutyValue)
-	decoder.Decode(&t.counterPeriod)
-	decoder.Decode(&t.counterValue)
-	decoder.Decode(&t.counterReload)
-	return nil
-}
+    def writeControl(t, value):
+        t.lengthEnabled = ((value>>7)&1 == 0)
+        t.counterPeriod = value & uint8(0x7F)
 
-func (t *Triangle) writeControl(value uint8) {
-	t.lengthEnabled = (value>>7)&1 == 0
-	t.counterPeriod = value & 0x7F
-}
+    def writeTimerLow(t, value):
+        t.timerPeriod = (t.timerPeriod & uint16(0xFF00)) | uint16(value)
 
-func (t *Triangle) writeTimerLow(value uint8) {
-	t.timerPeriod = (t.timerPeriod & 0xFF00) | uint16(value)
-}
+    def writeTimerHigh(t, value):
+        t.lengthValue = lengthTable[value>>3]
+        t.timerPeriod = (t.timerPeriod & uint16(0x00FF)) | (uint16(value&7) << uint16(8))
+        t.timerValue = t.timerPeriod
+        t.counterReload = true
 
-func (t *Triangle) writeTimerHigh(value uint8) {
-	t.lengthValue = lengthTable[value>>3]
-	t.timerPeriod = (t.timerPeriod & 0x00FF) | (uint16(value&7) << 8)
-	t.timerValue = t.timerPeriod
-	t.counterReload = true
-}
+    def stepTimer(t):
+        if t.timerValue == 0:
+            t.timerValue = t.timerPeriod
+            if t.lengthValue > 0 and t.counterValue > 0:
+                t.dutyValue = (t.dutyValue + uint8(1)) % uint8(32)
+        else:
+            t.timerValue -= uint16(1)
 
-func (t *Triangle) stepTimer() {
-	if t.timerValue == 0 {
-		t.timerValue = t.timerPeriod
-		if t.lengthValue > 0 && t.counterValue > 0 {
-			t.dutyValue = (t.dutyValue + 1) % 32
-		}
-	} else {
-		t.timerValue--
-	}
-}
+    def stepLength(t):
+        if t.lengthEnabled and t.lengthValue > 0:
+            t.lengthValue -= uint16(1)
 
-func (t *Triangle) stepLength() {
-	if t.lengthEnabled && t.lengthValue > 0 {
-		t.lengthValue--
-	}
-}
+    def stepCounter(t):
+        if t.counterReload:
+            t.counterValue = t.counterPeriod
+        elif t.counterValue > 0:
+            t.counterValue -= uint8(1)
+        if t.lengthEnabled:
+            t.counterReload = False
 
-func (t *Triangle) stepCounter() {
-	if t.counterReload {
-		t.counterValue = t.counterPeriod
-	} else if t.counterValue > 0 {
-		t.counterValue--
-	}
-	if t.lengthEnabled {
-		t.counterReload = false
-	}
-}
+    def output(t):
+        if not t.enabled:
+            return uint8(0)
+        if t.lengthValue == 0:
+            return uint8(0)
+        if t.counterValue == 0:
+            return uint8(0)
+        return triangleTable[t.dutyValue]
 
-func (t *Triangle) output() uint8 {
-	if !t.enabled {
-		return 0
-	}
-	if t.lengthValue == 0 {
-		return 0
-	}
-	if t.counterValue == 0 {
-		return 0
-	}
-	return triangleTable[t.dutyValue]
-}
+class Noise:
+    def __init__(n):
+        n.enabled         = False
+        n.mode            = False
+        n.shiftRegister   = uint16()
+        n.lengthEnabled   = False
+        n.lengthValue     = uint8()
+        n.timerPeriod     = uint16()
+        n.timerValue      = uint16()
+        n.envelopeEnabled = False
+        n.envelopeLoop    = False
+        n.envelopeStart   = False
+        n.envelopePeriod  = uint8()
+        n.envelopeValue   = uint8()
+        n.envelopeVolume  = uint8()
+        n.constantVolume  = uint8()
 
-// Noise
+    def Save(n, encoder):
+        encoder.Encode(n.enabled)
+        encoder.Encode(n.mode)
+        encoder.Encode(n.shiftRegister)
+        encoder.Encode(n.lengthEnabled)
+        encoder.Encode(n.lengthValue)
+        encoder.Encode(n.timerPeriod)
+        encoder.Encode(n.timerValue)
+        encoder.Encode(n.envelopeEnabled)
+        encoder.Encode(n.envelopeLoop)
+        encoder.Encode(n.envelopeStart)
+        encoder.Encode(n.envelopePeriod)
+        encoder.Encode(n.envelopeValue)
+        encoder.Encode(n.envelopeVolume)
+        encoder.Encode(n.constantVolume)
 
-type Noise struct {
-	enabled         bool
-	mode            bool
-	shiftRegister   uint16
-	lengthEnabled   bool
-	lengthValue     uint8
-	timerPeriod     uint16
-	timerValue      uint16
-	envelopeEnabled bool
-	envelopeLoop    bool
-	envelopeStart   bool
-	envelopePeriod  uint8
-	envelopeValue   uint8
-	envelopeVolume  uint8
-	constantVolume  uint8
-}
+    def Load(n, decoder):
+        decoder.Decode(n.enabled)
+        decoder.Decode(n.mode)
+        decoder.Decode(n.shiftRegister)
+        decoder.Decode(n.lengthEnabled)
+        decoder.Decode(n.lengthValue)
+        decoder.Decode(n.timerPeriod)
+        decoder.Decode(n.timerValue)
+        decoder.Decode(n.envelopeEnabled)
+        decoder.Decode(n.envelopeLoop)
+        decoder.Decode(n.envelopeStart)
+        decoder.Decode(n.envelopePeriod)
+        decoder.Decode(n.envelopeValue)
+        decoder.Decode(n.envelopeVolume)
+        decoder.Decode(n.constantVolume)
 
-func (n *Noise) Save(encoder *gob.Encoder) error {
-	encoder.Encode(n.enabled)
-	encoder.Encode(n.mode)
-	encoder.Encode(n.shiftRegister)
-	encoder.Encode(n.lengthEnabled)
-	encoder.Encode(n.lengthValue)
-	encoder.Encode(n.timerPeriod)
-	encoder.Encode(n.timerValue)
-	encoder.Encode(n.envelopeEnabled)
-	encoder.Encode(n.envelopeLoop)
-	encoder.Encode(n.envelopeStart)
-	encoder.Encode(n.envelopePeriod)
-	encoder.Encode(n.envelopeValue)
-	encoder.Encode(n.envelopeVolume)
-	encoder.Encode(n.constantVolume)
-	return nil
-}
+    def writeControl(n, value):
+        n.lengthEnabled = ((value>>5)&1 == 0)
+        n.envelopeLoop = ((value>>5)&1 == 1)
+        n.envelopeEnabled = ((value>>4)&1 == 0)
+        n.envelopePeriod = value & uint8(15)
+        n.constantVolume = value & uint8(15)
+        n.envelopeStart = True
 
-func (n *Noise) Load(decoder *gob.Decoder) error {
-	decoder.Decode(&n.enabled)
-	decoder.Decode(&n.mode)
-	decoder.Decode(&n.shiftRegister)
-	decoder.Decode(&n.lengthEnabled)
-	decoder.Decode(&n.lengthValue)
-	decoder.Decode(&n.timerPeriod)
-	decoder.Decode(&n.timerValue)
-	decoder.Decode(&n.envelopeEnabled)
-	decoder.Decode(&n.envelopeLoop)
-	decoder.Decode(&n.envelopeStart)
-	decoder.Decode(&n.envelopePeriod)
-	decoder.Decode(&n.envelopeValue)
-	decoder.Decode(&n.envelopeVolume)
-	decoder.Decode(&n.constantVolume)
-	return nil
-}
+    def writePeriod(n, value):
+        n.mode = (value&uint8(0x80) == uint8(0x80))
+        n.timerPeriod = noiseTable[value&uint8(0x0F)]
 
-func (n *Noise) writeControl(value uint8) {
-	n.lengthEnabled = (value>>5)&1 == 0
-	n.envelopeLoop = (value>>5)&1 == 1
-	n.envelopeEnabled = (value>>4)&1 == 0
-	n.envelopePeriod = value & 15
-	n.constantVolume = value & 15
-	n.envelopeStart = true
-}
+    def writeLength(n, value):
+        n.lengthValue = lengthTable[value>>uint8(3)]
+        n.envelopeStart = True
 
-func (n *Noise) writePeriod(value uint8) {
-	n.mode = value&0x80 == 0x80
-	n.timerPeriod = noiseTable[value&0x0F]
-}
+    def stepTimer(n):
+        if n.timerValue == 0:
+            n.timerValue = n.timerPeriod
+            if n.mode {
+                shift = uint16(6)
+            } else {
+                shift = uint16(1)
+            }
+            b1 = n.shiftRegister & uint16(1)
+            b2 = (n.shiftRegister >> shift) & uint16(1)
+            n.shiftRegister >>= uint16(1)
+            n.shiftRegister |= (b1 ^ b2) << uint16(14)
+        else:
+            n.timerValue -= uint16(1)
 
-func (n *Noise) writeLength(value uint8) {
-	n.lengthValue = lengthTable[value>>3]
-	n.envelopeStart = true
-}
+    def stepEnvelope(n):
+        if n.envelopeStart:
+            n.envelopeVolume = byte(15)
+            n.envelopeValue = n.envelopePeriod
+            n.envelopeStart = False
+        elif n.envelopeValue > 0:
+            n.envelopeValue -= byte(1)
+        else:
+            if n.envelopeVolume > 0:
+                n.envelopeVolume -= byte(1)
+            elif n.envelopeLoop:
+                n.envelopeVolume = byte(15)
+            n.envelopeValue = n.envelopePeriod
 
-func (n *Noise) stepTimer() {
-	if n.timerValue == 0 {
-		n.timerValue = n.timerPeriod
-		var shift uint8
-		if n.mode {
-			shift = 6
-		} else {
-			shift = 1
-		}
-		b1 := n.shiftRegister & 1
-		b2 := (n.shiftRegister >> shift) & 1
-		n.shiftRegister >>= 1
-		n.shiftRegister |= (b1 ^ b2) << 14
-	} else {
-		n.timerValue--
-	}
-}
+    def stepLength(n):
+        if n.lengthEnabled and n.lengthValue > 0:
+            n.lengthValue -= byte(1)
 
-func (n *Noise) stepEnvelope() {
-	if n.envelopeStart {
-		n.envelopeVolume = 15
-		n.envelopeValue = n.envelopePeriod
-		n.envelopeStart = false
-	} else if n.envelopeValue > 0 {
-		n.envelopeValue--
-	} else {
-		if n.envelopeVolume > 0 {
-			n.envelopeVolume--
-		} else if n.envelopeLoop {
-			n.envelopeVolume = 15
-		}
-		n.envelopeValue = n.envelopePeriod
-	}
-}
-
-func (n *Noise) stepLength() {
-	if n.lengthEnabled && n.lengthValue > 0 {
-		n.lengthValue--
-	}
-}
-
-func (n *Noise) output() uint8 {
-	if !n.enabled {
-		return 0
-	}
-	if n.lengthValue == 0 {
-		return 0
-	}
-	if n.shiftRegister&1 == 1 {
-		return 0
-	}
-	if n.envelopeEnabled {
-		return n.envelopeVolume
-	} else {
-		return n.constantVolume
-	}
-}
+    def output(n):
+        if not n.enabled:
+            return uint8(0)
+        }
+        if n.lengthValue == 0:
+            return uint8(0)
+        if n.shiftRegister&1 == 1 {
+            return uint8(0)
+        if n.envelopeEnabled:
+            return n.envelopeVolume
+        else:
+            return n.constantVolume
 
 // DMC
 
