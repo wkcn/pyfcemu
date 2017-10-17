@@ -48,6 +48,13 @@ class Console:
     def BackgroundColor(self):
         return Palette[self.PPU.readPalette(0) % 64]
 
+    def SetAudioChannel(self, channel):
+        self.APU.channel = channel
+
+    def SetAudioSampleRate(self, sampleRate):
+        # TODO
+        self.APU.sampleRate = CPUFrequency / sampleRate
+
 
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)

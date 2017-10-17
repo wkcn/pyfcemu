@@ -15,7 +15,11 @@ class GameView(View):
     def Enter(self):
         glClearColor(0, 0, 0, 1)
         self.director.SetTitle(self.title)
-        # self.console.SetAudioChannel(self.director.audio.channe)
+        #self.console.SetAudioChannel(self.director.audio.channel)
+        # TODO
+        self.console.SetAudioChannel(2)
+        self.console.SetAudioSampleRate(44100)
+        #self.console.SetAudioSampleRate(self.director.audio.sampleRate)
         glfw.set_key_callback(self.director.window, self.onKey)
         #self.console.LoadState(savePath(self.hash))
 

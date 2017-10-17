@@ -4,8 +4,8 @@ from memory import *
 class PPU:
     def __init__(self, console):
         self.console = console
-        self.Cycle = 340
-        self.ScanLine = 240
+        self.Cycle = 0
+        self.ScanLine = 0
         self.Frame = 0
 
         # storage variables 
@@ -63,9 +63,7 @@ class PPU:
 
         self.front = zeros((256, 240, 3), dtype = uint8)
         self.back = zeros((256, 240, 3), dtype = uint8)
-        self.writeControl(0)
-        self.writeMask(0)
-        self.writeOAMAddress(0)
+
         self.CYCLE_TO_DO = {
                 1: self.fetchNameTableuint8,
                 3: self.fetchAttributeTableuint8,
@@ -73,6 +71,15 @@ class PPU:
                 7: self.fetchHighTileuint8,
                 0: self.storeTileData
         }
+        self.Reset()
+
+    def Reset(self):
+        self.Cycle = 340
+        self.ScanLine = 240
+        self.Frame = 0
+        self.writeControl(0)
+        self.writeMask(0)
+        self.writeOAMAddress(0)
 
     def Read(self, address):
         address = address % uint16(0x4000)
@@ -138,8 +145,8 @@ class PPU:
         self.flagBackgroundTable = (value >> uint8(4)) & uint8(1)
         self.flagSpriteSize = (value >> uint8(5)) & uint8(1)
         self.flagMasterSlave = (value >> uint8(6)) & uint8(1)
-        self.nmiOutput = ((value >> uint8(7)) & uint8(1)) == 1
-        self.t = (self.t & uint16(0xF3FF)) | ((uint16(value) & uint16(0x03)) << uint16(10)) 
+        self.nmiOutput = (((value >> uint8(7)) & uint8(1)) == 1)
+        self.t = ((self.t & uint16(0xF3FF)) | ((uint16(value) & uint16(0x03)) << uint16(10)))
 
     def writeMask(self, value):
         self.flagGrayscale = (value >> uint8(0)) & uint8(1)
@@ -354,43 +361,43 @@ class PPU:
         c = Palette[self.readPalette(uint16(color)) % 64]
         self.back.SetRGBA(x, y, c)
 
-        def fetchSpritePattern(self, i, row):
-            tile = self.oamData[i * 4 + 1]
-            attributes = self.oamData[i * 4 + 2]
-            address = uint16(0)
-            if self.flagSpriteSize == 0:
-                if attributes&0x80 == 0x80:
-                    row = 7 - row
-                table = self.flagSpriteTable
-                address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
+    def fetchSpritePattern(self, i, row):
+        tile = self.oamData[i * 4 + 1]
+        attributes = self.oamData[i * 4 + 2]
+        address = uint16(0)
+        if self.flagSpriteSize == 0:
+            if attributes&0x80 == 0x80:
+                row = 7 - row
+            table = self.flagSpriteTable
+            address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
+        else:
+            if attributes & 0x80 == 0x80:
+                row = 15 - row
+            table = tile & uint8(1)
+            tile &= uint8(0xFE)
+            if row > 7:
+                tile += uint8(1)
+                row -= 8
+            address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
+        a = (attributes & uint8(3)) << uint8(2)
+        lowTileuint8 = self.Read(address)
+        highTileuint8 = self.Read(address + uint16(8))
+        data = uint32(0)
+        for i in range(8):
+            if attributes & 0x40 == 0x40:
+                p1 = (lowTileuint8 & uint8(1))
+                p2 = (highTileuint8 & uint8(1)) << uint8(1)
+                lowTileuint8 >>= uint8(1)
+                highTileuint8 >>= uint8(1)
             else:
-                if attributes & 0x80 == 0x80:
-                    row = 15 - row
-                table = tile & uint8(1)
-                tile &= uint8(0xFE)
-                if row > 7:
-                    tile += uint8(1)
-                    row -= 8
-                address = uint16(0x1000) * uint16(table) + uint16(tile) * uint16(16) + uint16(row)
-            a = (attributes & uint8(3)) << uint8(2)
-            lowTileuint8 = self.Read(address)
-            highTileuint8 = self.Read(address + uint16(8))
-            data = uint32(0)
-            for i in range(8):
-                if attributes & 0x40 == 0x40:
-                    p1 = (lowTileuint8 & uint8(1))
-                    p2 = (highTileuint8 & uint8(1)) << uint8(1)
-                    lowTileuint8 >>= uint8(1)
-                    highTileuint8 >>= uint8(1)
-                else:
-                    p1 = (lowTileuint8 & uint8(0x80)) >> uint8(7)
-                    p2 = (highTileuint8 & uint8(0x80)) >> uint8(6)
-                    lowTileuint8 <<= uint8(1)
-                    highTileuint8 <<= uint8(1)
-                data <<= uint32(4)
-                data |= uint32(a | p1 | p2)
-            return data
-    
+                p1 = (lowTileuint8 & uint8(0x80)) >> uint8(7)
+                p2 = (highTileuint8 & uint8(0x80)) >> uint8(6)
+                lowTileuint8 <<= uint8(1)
+                highTileuint8 <<= uint8(1)
+            data <<= uint32(4)
+            data |= uint32(a | p1 | p2)
+        return data
+
     def evaluateSprites(self):
         if self.flagSpriteSize == 0:
             h = 8
@@ -404,7 +411,7 @@ class PPU:
             row = self.ScanLine - int(y)
             if row < 0 or row >= h:
                 continue
-            if count < 0:
+            if count < 8:
                 self.spritePatterns[count] = self.fetchSpritePattern(i, row)
                 self.spritePositions[count] = x
                 self.spritePriorities[count] = (a >> uint8(5)) & uint8(1)
@@ -456,4 +463,29 @@ class PPU:
             if renderLine and fetchCycle:
                 self.tileData <<= uint64(4)
                 self.CYCLE_TO_DO[self.Cycle % 8]()
+
+            if preLine and self.Cycle >= 280 and self.Cycle <= 304:
+                self.copyY()
+            if renderLine:
+                if fetchCycle and self.Cycle % 8 == 0:
+                    self.incrementX()
+                if self.Cycle == 256:
+                    self.incrementY()
+                if self.Cycle == 257:
+                    self.copyX()
+        # sprite logic
+        if renderingEnabled:
+            if self.Cycle == 257:
+                if visibleLine:
+                    self.evaluateSprites()
+                else:
+                    self.spriteCount = 0
+
+        # vblank logic
+        if self.ScanLine == 241 and self.Cycle == 1:
+            self.setVerticalBlank()
+        if preLine and self.Cycle == 1:
+            self.clearVerticalBlank()
+            self.flagSpriteZeroHit = byte(0)
+            self.flagSpriteOverflow = byte(0) 
 

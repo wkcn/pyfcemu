@@ -28,200 +28,10 @@ tndTable = zeros(203, dtype = float32)
 
 frameCounterRate = CPUFrequency / 240.0
 
-def init():
-    for i in range(31):
-        pulseTable[i] = 95.52 / (8128.0/ float32(i) + 100)
-    for i in range(203): 
-        tndTable[i] = 163.67 / (24329.0/float32(i) + 100)
-
-class APU:
-    def __init__(self, console):
-        self.console = console
-        self.channel = float32()
-        self.sampleRate = float64()
-        self.pulse1 = Pulse() 
-        self.pulse2 = Pulse()
-        self.Triangle = Triangle()
-        self.noise = Noise()
-        self.dmc = DMC()
-        self.cycle = uint64() 
-        self.framePeriod = uint8()
-        self.frameValue = uint8()
-        self.frameIRQ = False
-        self.filterChain = None
-        self.noise.shiftRegister = 1
-        self.pulse1.channel = 1
-        self.pulse2.channel = 2
-        self.dmc.cpu = console.CPU
-
-    def Step(self):
-        cycle = self.cycle
-        self.cycle += uint64(1) 
-        cycle2 = apu.cycle
-        self.stepTimer()
-        f1 = int(float(cycle1) / frameCounterRate)
-        f2 = int(float(cycle2) / frameCounterRate)
-        if f1 != f2 :
-            self.stepFrameCounter()
-        s1 = int(float(cycle1) / self.sampleRate)
-        s2 = int(float(cycle2) / self.sampleRate)
-        if s1 != s2 :
-            self.sendSample()
-
-    def sendSample(apu):
-        output = apu.filterChain.Step(apu.output())
-        # TODO
-
-    def output(apu):
-        p1 = apu.pulse1.output()
-        p2 = apu.pulse2.output()
-        t = apu.triangle.output()
-        n = apu.noise.output()
-        d = apu.dmc.output()
-        pulseOut = pulseTable[p1+p2]
-        tndOut = tndTable[3*t+2*n+d]
-        return pulseOut + tndOut
-
-    def stepFrameCounter(apu):
-        if apu.framePeriod == 4:
-            apu.frameValue = (apu.frameValue + uint8(1)) % uint8(4)
-            if apu.frameValue in [0, 2]:
-                apu.stepEnvelope()
-            elif apu.frameValue == 1:
-                apu.stepEnvelope()
-                apu.stepSweep()
-                apu.stepLength()
-            elif apu.frameValue == 3:
-                apu.stepEnvelope()
-                apu.stepSweep()
-                apu.stepLength()
-                apu.fireIRQ()
-        elif apu.framePeriod == 5:
-            apu.frameValue = (apu.frameValue + uint8(1)) % uint8(5)
-            if apu.frameValue in [1,3]:
-                apu.stepEnvelope()
-            elif apu.frameValue in [0,2]:
-                apu.stepEnvelope()
-                apu.stepSweep()
-                apu.stepLength()
-
-        def stepTimer(apu):
-            if apu.cycle % 2 == 0:
-                apu.pulse1.stepTimer()
-                apu.pulse2.stepTimer()
-                apu.noise.stepTimer()
-                apu.dmc.stepTimer()
-            apu.triangle.stepTimer()
-
-
-        def stepEnvelope(apu): 
-            apu.pulse1.stepEnvelope()
-            apu.pulse2.stepEnvelope()
-            apu.triangle.stepCounter()
-            apu.noise.stepEnvelope()
-
-
-        def stepSweep(apu):
-            apu.pulse1.stepSweep()
-            apu.pulse2.stepSweep()
-
-        def stepLength(apu): 
-            apu.pulse1.stepLength()
-            apu.pulse2.stepLength()
-            apu.triangle.stepLength()
-            apu.noise.stepLength()
-
-        def fireIRQ(apu):
-            if apu.frameIRQ:
-                apu.console.CPU.triggerIRQ()
-
-        def readRegister(apu, address):
-            if address == 0x4015:
-                return apu.readStatus()
-            return uint8(0)
-
-        def writeRegister(apu, address, value):
-            if address == 0x4000:
-                apu.pulse1.writeControl(value)
-            elif address == 0x4001:
-                apu.pulse1.writeSweep(value)
-            elif address == 0x4002:
-                apu.pulse1.writeTimerLow(value)
-            elif address == 0x4003:
-                apu.pulse1.writeTimerHigh(value)
-            elif address == 0x4004:
-                apu.pulse2.writeControl(value)
-            elif address == 0x4005:
-                apu.pulse2.writeSweep(value)
-            elif address == 0x4006:
-                apu.pulse2.writeTimerLow(value)
-            elif address == 0x4007:
-                apu.pulse2.writeTimerHigh(value)
-            elif address == 0x4008:
-                apu.triangle.writeControl(value)
-            elif address in [0x4009, 0x4010]:
-                apu.dmc.writeControl(value)
-            elif address == 0x4011:
-                apu.dmc.writeValue(value)
-            elif address == 0x4012:
-                apu.dmc.writeAddress(value)
-            elif address == 0x4013:
-                apu.dmc.writeLength(value)
-            elif address == 0x400A:
-                apu.triangle.writeTimerLow(value)
-            elif address == 0x400B:
-                apu.triangle.writeTimerHigh(value)
-            elif address == 0x400C:
-                apu.noise.writeControl(value)
-            elif address in [0x400D, 0x400E]:
-                apu.noise.writePeriod(value)
-            elif address == 0x400F:
-                apu.noise.writeLength(value)
-            elif address == 0x4015:
-                apu.writeControl(value)
-            elif address == 0x4017:
-                apu.writeFrameCounter(value)
-
-        def readStatus(apu):
-            result = uint8(0)
-            if apu.pulse1.lengthValue > 0:
-                result |= uint8(1)
-            if apu.pulse2.lengthValue > 0:
-                result |= uint8(2)
-            if apu.triangle.lengthValue > 0:
-                result |= uint8(4)
-            if apu.noise.lengthValue > 0:
-                result |= uint8(8)
-            if apu.dmc.currentLength > 0:
-                result |= uint8(16)
-            return result
-
-        def writeControl(apu, value):
-            apu.pulse1.enabled = (value&1 == 1)
-            apu.pulse2.enabled = (value&2 == 2)
-            apu.triangle.enabled = (value&4 == 4)
-            apu.noise.enabled = (value&8 == 8)
-            apu.dmc.enabled = (value&16 == 16)
-            if not apu.pulse1.enabled:
-                apu.pulse1.lengthValue = uint8(0)
-            if not apu.pulse2.enabled:
-                apu.pulse2.lengthValue = uint8(0)
-            if not apu.triangle.enabled:
-                apu.triangle.lengthValue = uint8(0)
-            if not apu.noise.enabled:
-                apu.noise.lengthValue = uint8(0)
-            if not apu.dmc.enabled:
-                apu.dmc.currentLength = uint16(0)
-            elif  apu.dmc.currentLength == 0:
-                apu.dmc.restart()
-
-        def writeFrameCounter(apu, value):
-            apu.framePeriod = uint8(4) + (value>>uint8(7))&uint8(1)
-            apu.frameIRQ = ((value>>uint8(6))&uint8(1) == 0)
-            if apu.framePeriod == 5:
-                apu.stepEnvelope()
-                apu.stepSweep()
-                apu.stepLength()
+for i in range(1, 31):
+    pulseTable[i] = 95.52 / (8128.0/ float(i) + 100)
+for i in range(1, 203): 
+    tndTable[i] = 163.67 / (24329.0/float(i) + 100)
 
 class Pulse:
     def __init__(self):
@@ -523,11 +333,10 @@ class Noise:
     def stepTimer(n):
         if n.timerValue == 0:
             n.timerValue = n.timerPeriod
-            if n.mode {
+            if n.mode:
                 shift = uint16(6)
-            } else {
+            else:
                 shift = uint16(1)
-            }
             b1 = n.shiftRegister & uint16(1)
             b2 = (n.shiftRegister >> shift) & uint16(1)
             n.shiftRegister >>= uint16(1)
@@ -556,137 +365,303 @@ class Noise:
     def output(n):
         if not n.enabled:
             return uint8(0)
-        }
         if n.lengthValue == 0:
             return uint8(0)
-        if n.shiftRegister&1 == 1 {
+        if n.shiftRegister&1 == 1:
             return uint8(0)
         if n.envelopeEnabled:
             return n.envelopeVolume
         else:
             return n.constantVolume
 
-// DMC
+class DMC:
+    def __init__(d):
+        d.cpu            = None
+        d.enabled        = False
+        d.value          = uint8()
+        d.sampleAddress  = uint16()
+        d.sampleLength   = uint16()
+        d.currentAddress = uint16()
+        d.currentLength  = uint16()
+        d.shiftRegister  = uint8()
+        d.bitCount       = uint8()
+        d.tickPeriod     = uint8()
+        d.tickValue      = uint8()
+        d.loop           = False
+        d.irq            = False
 
-type DMC struct {
-	cpu            *CPU
-	enabled        bool
-	value          uint8
-	sampleAddress  uint16
-	sampleLength   uint16
-	currentAddress uint16
-	currentLength  uint16
-	shiftRegister  uint8
-	bitCount       uint8
-	tickPeriod     uint8
-	tickValue      uint8
-	loop           bool
-	irq            bool
-}
+    def Save(d, encoder):
+        encoder.Encode(d.enabled)
+        encoder.Encode(d.value)
+        encoder.Encode(d.sampleAddress)
+        encoder.Encode(d.sampleLength)
+        encoder.Encode(d.currentAddress)
+        encoder.Encode(d.currentLength)
+        encoder.Encode(d.shiftRegister)
+        encoder.Encode(d.bitCount)
+        encoder.Encode(d.tickPeriod)
+        encoder.Encode(d.tickValue)
+        encoder.Encode(d.loop)
+        encoder.Encode(d.irq)
 
-func (d *DMC) Save(encoder *gob.Encoder) error {
-	encoder.Encode(d.enabled)
-	encoder.Encode(d.value)
-	encoder.Encode(d.sampleAddress)
-	encoder.Encode(d.sampleLength)
-	encoder.Encode(d.currentAddress)
-	encoder.Encode(d.currentLength)
-	encoder.Encode(d.shiftRegister)
-	encoder.Encode(d.bitCount)
-	encoder.Encode(d.tickPeriod)
-	encoder.Encode(d.tickValue)
-	encoder.Encode(d.loop)
-	encoder.Encode(d.irq)
-	return nil
-}
+    def Load(d, decoder):
+        decoder.Decode(d.enabled)
+        decoder.Decode(d.value)
+        decoder.Decode(d.sampleAddress)
+        decoder.Decode(d.sampleLength)
+        decoder.Decode(d.currentAddress)
+        decoder.Decode(d.currentLength)
+        decoder.Decode(d.shiftRegister)
+        decoder.Decode(d.bitCount)
+        decoder.Decode(d.tickPeriod)
+        decoder.Decode(d.tickValue)
+        decoder.Decode(d.loop)
+        decoder.Decode(d.irq)
 
-func (d *DMC) Load(decoder *gob.Decoder) error {
-	decoder.Decode(&d.enabled)
-	decoder.Decode(&d.value)
-	decoder.Decode(&d.sampleAddress)
-	decoder.Decode(&d.sampleLength)
-	decoder.Decode(&d.currentAddress)
-	decoder.Decode(&d.currentLength)
-	decoder.Decode(&d.shiftRegister)
-	decoder.Decode(&d.bitCount)
-	decoder.Decode(&d.tickPeriod)
-	decoder.Decode(&d.tickValue)
-	decoder.Decode(&d.loop)
-	decoder.Decode(&d.irq)
-	return nil
-}
+    def writeControl(d, value):
+        d.irq = (value&0x80 == 0x80)
+        d.loop = (value&0x40 == 0x40)
+        d.tickPeriod = dmcTable[value&uint8(0x0F)]
 
-func (d *DMC) writeControl(value uint8) {
-	d.irq = value&0x80 == 0x80
-	d.loop = value&0x40 == 0x40
-	d.tickPeriod = dmcTable[value&0x0F]
-}
+    def writeValue(d, value):
+        d.value = value & uint8(0x7F)
 
-func (d *DMC) writeValue(value uint8) {
-	d.value = value & 0x7F
-}
+    def writeAddress(d, value):
+        # Sample address = %11AAAAAA.AA000000
+        d.sampleAddress = uint16(0xC000) | (uint16(value) << uint16(6))
 
-func (d *DMC) writeAddress(value uint8) {
-	// Sample address = %11AAAAAA.AA000000
-	d.sampleAddress = 0xC000 | (uint16(value) << 6)
-}
+    def writeLength(d, value):
+        # Sample length = %0000LLLL.LLLL0001
+        d.sampleLength = (uint16(value) << uint16(4)) | uint16(1)
 
-func (d *DMC) writeLength(value uint8) {
-	// Sample length = %0000LLLL.LLLL0001
-	d.sampleLength = (uint16(value) << 4) | 1
-}
+    def restart(d):
+        d.currentAddress = d.sampleAddress
+        d.currentLength = d.sampleLength
 
-func (d *DMC) restart() {
-	d.currentAddress = d.sampleAddress
-	d.currentLength = d.sampleLength
-}
+    def stepTimer(d):
+        if not d.enabled:
+            return
+        d.stepReader()
+        if d.tickValue == 0:
+            d.tickValue = d.tickPeriod
+            d.stepShifter()
+        else:
+            d.tickValue -= byte(1)
 
-func (d *DMC) stepTimer() {
-	if !d.enabled {
-		return
-	}
-	d.stepReader()
-	if d.tickValue == 0 {
-		d.tickValue = d.tickPeriod
-		d.stepShifter()
-	} else {
-		d.tickValue--
-	}
-}
+    def stepReader(d):
+        if d.currentLength > 0 and d.bitCount == 0:
+            d.cpu.stall += 4
+            d.shiftRegister = d.cpu.Read(d.currentAddress)
+            d.bitCount = byte(8)
+            d.currentAddress += uint16(1)
+            if d.currentAddress == 0:
+                d.currentAddress = uint16(0x8000)
+            d.currentLength -= uint16(1)
+            if d.currentLength == 0 and d.loop:
+                d.restart()
 
-func (d *DMC) stepReader() {
-	if d.currentLength > 0 && d.bitCount == 0 {
-		d.cpu.stall += 4
-		d.shiftRegister = d.cpu.Read(d.currentAddress)
-		d.bitCount = 8
-		d.currentAddress++
-		if d.currentAddress == 0 {
-			d.currentAddress = 0x8000
-		}
-		d.currentLength--
-		if d.currentLength == 0 && d.loop {
-			d.restart()
-		}
-	}
-}
+    def stepShifter(d):
+        if d.bitCount == 0:
+            return
+        if d.shiftRegister&1 == 1:
+            if d.value <= 125:
+                d.value += byte(2)
+        else:
+            if d.value >= 2:
+                d.value -= byte(2)
+        d.shiftRegister >>= byte(1)
+        d.bitCount -= byte(1)
 
-func (d *DMC) stepShifter() {
-	if d.bitCount == 0 {
-		return
-	}
-	if d.shiftRegister&1 == 1 {
-		if d.value <= 125 {
-			d.value += 2
-		}
-	} else {
-		if d.value >= 2 {
-			d.value -= 2
-		}
-	}
-	d.shiftRegister >>= 1
-	d.bitCount--
-}
+    def output(d):
+        return d.value
 
-func (d *DMC) output() uint8 {
-	return d.value
-}
+class APU:
+    def __init__(self, console):
+        self.console = console
+        self.channel = float32()
+        self.sampleRate = float64()
+        self.pulse1 = Pulse() 
+        self.pulse2 = Pulse()
+        self.triangle = Triangle()
+        self.noise = Noise()
+        self.dmc = DMC()
+        self.cycle = uint64() 
+        self.framePeriod = uint8()
+        self.frameValue = uint8()
+        self.frameIRQ = False
+        self.filterChain = None
+        self.noise.shiftRegister = 1
+        self.pulse1.channel = 1
+        self.pulse2.channel = 2
+        self.dmc.cpu = console.CPU
+
+    def Step(self):
+        cycle1 = self.cycle
+        self.cycle += uint64(1) 
+        cycle2 = self.cycle
+        self.stepTimer()
+        f1 = int(float(cycle1) / frameCounterRate)
+        f2 = int(float(cycle2) / frameCounterRate)
+        if f1 != f2 :
+            self.stepFrameCounter()
+        s1 = int(float(cycle1) / self.sampleRate)
+        s2 = int(float(cycle2) / self.sampleRate)
+        if s1 != s2 :
+            self.sendSample()
+
+    def sendSample(apu):
+        pass
+        # output = apu.filterChain.Step(apu.output())
+        # TODO
+
+    def output(apu):
+        p1 = apu.pulse1.output()
+        p2 = apu.pulse2.output()
+        t = apu.triangle.output()
+        n = apu.noise.output()
+        d = apu.dmc.output()
+        pulseOut = pulseTable[p1+p2]
+        tndOut = tndTable[3*t+2*n+d]
+        return pulseOut + tndOut
+
+    def stepFrameCounter(apu):
+        if apu.framePeriod == 4:
+            apu.frameValue = (apu.frameValue + uint8(1)) % uint8(4)
+            if apu.frameValue in [0, 2]:
+                apu.stepEnvelope()
+            elif apu.frameValue == 1:
+                apu.stepEnvelope()
+                apu.stepSweep()
+                apu.stepLength()
+            elif apu.frameValue == 3:
+                apu.stepEnvelope()
+                apu.stepSweep()
+                apu.stepLength()
+                apu.fireIRQ()
+        elif apu.framePeriod == 5:
+            apu.frameValue = (apu.frameValue + uint8(1)) % uint8(5)
+            if apu.frameValue in [1,3]:
+                apu.stepEnvelope()
+            elif apu.frameValue in [0,2]:
+                apu.stepEnvelope()
+                apu.stepSweep()
+                apu.stepLength()
+
+    def stepTimer(apu):
+        if apu.cycle % 2 == 0:
+            apu.pulse1.stepTimer()
+            apu.pulse2.stepTimer()
+            apu.noise.stepTimer()
+            apu.dmc.stepTimer()
+        apu.triangle.stepTimer()
+
+
+    def stepEnvelope(apu): 
+        apu.pulse1.stepEnvelope()
+        apu.pulse2.stepEnvelope()
+        apu.triangle.stepCounter()
+        apu.noise.stepEnvelope()
+
+
+    def stepSweep(apu):
+        apu.pulse1.stepSweep()
+        apu.pulse2.stepSweep()
+
+    def stepLength(apu): 
+        apu.pulse1.stepLength()
+        apu.pulse2.stepLength()
+        apu.triangle.stepLength()
+        apu.noise.stepLength()
+
+    def fireIRQ(apu):
+        if apu.frameIRQ:
+            apu.console.CPU.triggerIRQ()
+
+    def readRegister(apu, address):
+        if address == 0x4015:
+            return apu.readStatus()
+        return uint8(0)
+
+    def writeRegister(apu, address, value):
+        if address == 0x4000:
+            apu.pulse1.writeControl(value)
+        elif address == 0x4001:
+            apu.pulse1.writeSweep(value)
+        elif address == 0x4002:
+            apu.pulse1.writeTimerLow(value)
+        elif address == 0x4003:
+            apu.pulse1.writeTimerHigh(value)
+        elif address == 0x4004:
+            apu.pulse2.writeControl(value)
+        elif address == 0x4005:
+            apu.pulse2.writeSweep(value)
+        elif address == 0x4006:
+            apu.pulse2.writeTimerLow(value)
+        elif address == 0x4007:
+            apu.pulse2.writeTimerHigh(value)
+        elif address == 0x4008:
+            apu.triangle.writeControl(value)
+        elif address in [0x4009, 0x4010]:
+            apu.dmc.writeControl(value)
+        elif address == 0x4011:
+            apu.dmc.writeValue(value)
+        elif address == 0x4012:
+            apu.dmc.writeAddress(value)
+        elif address == 0x4013:
+            apu.dmc.writeLength(value)
+        elif address == 0x400A:
+            apu.triangle.writeTimerLow(value)
+        elif address == 0x400B:
+            apu.triangle.writeTimerHigh(value)
+        elif address == 0x400C:
+            apu.noise.writeControl(value)
+        elif address in [0x400D, 0x400E]:
+            apu.noise.writePeriod(value)
+        elif address == 0x400F:
+            apu.noise.writeLength(value)
+        elif address == 0x4015:
+            apu.writeControl(value)
+        elif address == 0x4017:
+            apu.writeFrameCounter(value)
+
+    def readStatus(apu):
+        result = uint8(0)
+        if apu.pulse1.lengthValue > 0:
+            result |= uint8(1)
+        if apu.pulse2.lengthValue > 0:
+            result |= uint8(2)
+        if apu.triangle.lengthValue > 0:
+            result |= uint8(4)
+        if apu.noise.lengthValue > 0:
+            result |= uint8(8)
+        if apu.dmc.currentLength > 0:
+            result |= uint8(16)
+        return result
+
+    def writeControl(apu, value):
+        apu.pulse1.enabled = (value&1 == 1)
+        apu.pulse2.enabled = (value&2 == 2)
+        apu.triangle.enabled = (value&4 == 4)
+        apu.noise.enabled = (value&8 == 8)
+        apu.dmc.enabled = (value&16 == 16)
+        if not apu.pulse1.enabled:
+            apu.pulse1.lengthValue = uint8(0)
+        if not apu.pulse2.enabled:
+            apu.pulse2.lengthValue = uint8(0)
+        if not apu.triangle.enabled:
+            apu.triangle.lengthValue = uint8(0)
+        if not apu.noise.enabled:
+            apu.noise.lengthValue = uint8(0)
+        if not apu.dmc.enabled:
+            apu.dmc.currentLength = uint16(0)
+        elif  apu.dmc.currentLength == 0:
+            apu.dmc.restart()
+
+    def writeFrameCounter(apu, value):
+        apu.framePeriod = uint8(4) + (value>>uint8(7))&uint8(1)
+        apu.frameIRQ = ((value>>uint8(6))&uint8(1) == 0)
+        if apu.framePeriod == 5:
+            apu.stepEnvelope()
+            apu.stepSweep()
+            apu.stepLength()
+
