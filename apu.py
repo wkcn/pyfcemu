@@ -496,6 +496,7 @@ class APU:
         self.dmc.cpu = console.CPU
 
     def Step(self):
+        return
         cycle1 = self.cycle
         self.cycle += uint64(1) 
         cycle2 = self.cycle

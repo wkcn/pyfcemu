@@ -1,17 +1,16 @@
-from numpy import *
 class Controller:
     def __init__(self):
-        self.buttons = zeros(8, dtype = bool) 
+        self.buttons = [False for _ in range(8)] 
         self.index = 0 
-        self.strobe = byte()
+        self.strobe = 0 
 
     def SetButtons(c, buttons):
         c.buttons = buttons
 
     def Read(c):
-        value = byte(0)
+        value = 0
         if c.index < 8 and c.buttons[c.index]:
-            value = byte(1)
+            value = 1
         c.index += 1
         if c.strobe&1 == 1:
             c.index = 0

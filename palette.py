@@ -1,6 +1,6 @@
-from numpy import *
+import numpy as np
 
-Palette = zeros((64, 3))
+Palette = np.zeros((64, 3))
 
 colors = [
 		0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00,
@@ -13,7 +13,7 @@ colors = [
 		0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC, 0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000]
 
 for i, c in enumerate(colors):
-    r = uint8(c >> 16)
-    g = uint8(c >> 8)
-    b = uint8(c)
+    r = np.uint8(c >> 16)
+    g = np.uint8(c >> 8)
+    b = np.uint8(c)
     Palette[i] = [r,g,b] 

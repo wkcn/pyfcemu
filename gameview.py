@@ -1,5 +1,5 @@
 from OpenGL.GL import *
-from numpy import *
+from defines import *
 from view import *
 import glfw
 import ctypes

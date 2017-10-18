@@ -1,4 +1,4 @@
-from numpy import *
+from defines import *
 from memory import *
 
 MIRRORS = [

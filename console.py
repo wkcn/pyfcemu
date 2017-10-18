@@ -1,10 +1,10 @@
-from numpy import *
 from controller import *
 from ines import *
 from mapper import *
 from cpu import *
 from apu import *
 from ppu import *
+import time
 
 class Console:
     def __init__(self):
@@ -22,7 +22,7 @@ class Console:
     
     def Step(self):
         cpuCycles = self.CPU.Step()
-        ppuCycles = cpuCycles * uint64(3)
+        ppuCycles = cpuCycles * 3
         for i in range(ppuCycles):
             self.PPU.Step()
             self.Mapper.Step()
@@ -39,8 +39,11 @@ class Console:
 
     def StepSeconds(self, seconds):
         cycles = int(CPUFrequency * seconds)
+        oldc = cycles
+        ot = time.time()
         while cycles > 0:
             cycles -= self.Step()
+            print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot))
 
     def Buffer(self):
         return self.PPU.front 
@@ -58,7 +61,7 @@ class Console:
 
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)
-    ram = zeros(2048, dtype = uint8)
+    ram = [0 for _ in range(2048)] 
     controller1 = Controller()
     controller2 = Controller()
 
