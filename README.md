@@ -4,7 +4,7 @@ This is **an NES emulator written in Python**.
 
 ![](screenshots/first.jpg)
 
-I wrote a numpy type version and a original type version.
+I wrote a numpy type version and an original type version.
 
 However, the performance are both so slow, and 6502 cpu is faster 100x than them :-(
 
