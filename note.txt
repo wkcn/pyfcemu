@@ -1,0 +1,1 @@
+https://www.codeproject.com/Articles/1167203/TypeNESs-an-NES-emulator-in-TypeScript

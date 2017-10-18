@@ -3,7 +3,8 @@ from cartridge import *
 iNESFileMagic = b'NES\x1a'
 
 uint8 = int
-fromstring = lambda x, dtype : [dtype(c) for c in x]
+ordc = lambda c:c if type(c) ==int else ord(c)
+fromstring = lambda x, dtype : [dtype(ordc(c)) for c in x]
 
 def LoadNESFile(path):
     print ("Loading %s" % path)

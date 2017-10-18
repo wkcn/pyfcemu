@@ -43,7 +43,7 @@ class Console:
         ot = time.time()
         while cycles > 0:
             cycles -= self.Step()
-            print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot), cycles)
+            #print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot), cycles)
 
     def Buffer(self):
         return self.PPU.front 
