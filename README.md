@@ -1,6 +1,6 @@
-# PyFCSim
+# PyFCEmu
 
-This is **an NES emulator written in Python**.
+This is **a NES emulator written in Python**.
 
 ![](screenshots/first.jpg)
 
@@ -8,7 +8,7 @@ I wrote a numpy type version and an original type version.
 
 However, the performance are both so slow, and 6502 cpu is faster 100x than them :-(
 
-I think it's **NOT RECOMMENDED** to write a emulator in Python.
+I think it's **NOT RECOMMENDED** to write an emulator in Python.
 
 
 
