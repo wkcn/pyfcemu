@@ -116,7 +116,7 @@ class CPU:
             self.Cycles += 1
 
     def compare(self, a, b):
-        self.setZN(a - b)
+        self.setZN((a - b) & 0xFF)
         self.C = 1 if a >= b else 0
     
     def Read(self, address):
@@ -224,7 +224,7 @@ class CPU:
 
         CPU.MODES_FUNC[mode](self)
 
-        #self.PrintInstruction()
+        self.PrintInstruction()
         self.PC += instructionSizes[opcode]
         self.Cycles += instructionCycles[opcode]
 
@@ -309,7 +309,7 @@ class CPU:
         a = self.A
         b = self.Read(info.address)
         c = self.C
-        self.A = a + b + c
+        self.A = (a + b + c) & 0xFF
         self.setZN(self.A)
         self.C = 1 if a + b + c > 0xFF else 0
         self.V = 1 if (a ^ b) & 0x80 == 0 and (a ^ self.A) & 0x80 != 0 else 0

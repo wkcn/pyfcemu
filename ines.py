@@ -1,7 +1,9 @@
 import struct
-from numpy import *
 from cartridge import *
 iNESFileMagic = b'NES\x1a'
+
+uint8 = int
+fromstring = lambda x, dtype : [dtype(c) for c in x]
 
 def LoadNESFile(path):
     print ("Loading %s" % path)
@@ -36,5 +38,5 @@ def LoadNESFile(path):
     _chr = fromstring(fin.read(8192 * NumCHR), uint8)
 
     if NumCHR == 0:
-        _chr = zeros(8192, dtype = uint8)
+        _chr = [0 for _ in range(8192)]
     return Cartridge(prg, _chr, mapper, mirror, battery), None
