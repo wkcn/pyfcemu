@@ -22,10 +22,12 @@ class Mapper2:
         if address < 0x2000:
             return self.cartridge.CHR[address]
         elif address >= 0xC000:
-            index = self.prgBank2 * 0x4000 + ((address - 0xC000) & 0xFFFF)
+            #index = self.prgBank2 * 0x4000 + ((address - 0xC000) & 0xFFFF)
+            index = (self.prgBank2 << 14)+ ((address - 0xC000) & 0xFFFF)
             return self.cartridge.PRG[index]
         elif address >= 0x8000:
-            index = self.prgBank1 * 0x4000 + ((address - 0x8000) & 0xFFFF)
+            #index = self.prgBank1 * 0x4000 + ((address - 0x8000) & 0xFFFF)
+            index = (self.prgBank1 << 14) + ((address - 0x8000) & 0xFFFF)
             return self.cartridge.PRG[index]
         elif address >= 0x6000:
             return self.cartridge.SRAM[address - 0x6000]

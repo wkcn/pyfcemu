@@ -63,9 +63,11 @@ class GameView(View):
 
     def setTexture(self, im):
         shape = im.shape
+        '''
         import matplotlib.pyplot as plt
         plt.imshow(im)
         plt.show()
+        '''
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shape[0], shape[1], 0, GL_RGB, GL_UNSIGNED_BYTE, im.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)))
 
     def drawBuffer(self, window):

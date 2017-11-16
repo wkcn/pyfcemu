@@ -43,13 +43,13 @@ class Console:
         ot = time.time()
         while cycles > 0:
             cycles -= self.Step()
-            #print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot), cycles)
+        print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot), cycles, seconds)
 
     def Buffer(self):
         return self.PPU.front 
 
     def BackgroundColor(self):
-        return Palette[self.PPU.readPalette(0) % 64]
+        return Palette[self.PPU.readPalette(0) & 0x3F]
 
     def SetAudioChannel(self, channel):
         self.APU.channel = channel

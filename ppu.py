@@ -78,37 +78,37 @@ class PPU:
         self.writeOAMAddress(0)
 
     def Read(self, address):
-        address = address % 0x4000
+        address = address & 0x3FFF
         if address < 0x2000:
             return self.console.Mapper.Read(address)
         elif address < 0x3F00:
             mode = self.console.Cartridge.Mirror
-            return self.console.PPU.nameTableData[MirrorAddress(mode, address) % 2048]
+            return self.console.PPU.nameTableData[MirrorAddress(mode, address) & 0x7FF]
         elif address < 0x4000:
-            return self.console.PPU.readPalette(address % 32)
+            return self.console.PPU.readPalette(address & 0x1F)
         else:
             raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
         return 0
 
     def Write(self, address, value):
-        address = address % 0x4000
+        address = address & 0x3FFF
         if address < 0x2000:
             self.console.Mapper.Write(address, value)
         elif address < 0x3F00:
             mode = self.console.Cartridge.Mirror
-            self.console.PPU.nameTableData[MirrorAddress(mode, address) % 2048] = value
+            self.console.PPU.nameTableData[MirrorAddress(mode, address) & 0x7FF] = value
         elif address < 0x4000:
-            self.console.PPU.writePalette(address % 32, value)
+            self.console.PPU.writePalette(address & 0x1F, value)
         else:
             raise RuntimeError("Unhandled PPU Memory write at address: 0x%04X" % address)
 
     def readPalette(self, address):
-        if address >= 16 and address % 4 == 0:
+        if address >= 16 and address & 0x3 == 0:
             address -= 16
         return self.paletteData[address]
 
     def writePalette(self, address, value):
-        if address >= 16 and address % 4 == 0:
+        if address >= 16 and address & 0x3 == 0:
             address -= 16
         self.paletteData[address] = value
 
@@ -199,7 +199,7 @@ class PPU:
 
     def readData(self):
         value = self.Read(self.v)
-        if self.v % 0x4000 < 0x3F00:
+        if self.v & 0x3FFF < 0x3F00:
             buffered = self.bufferedData
             self.bufferedData = value
             value = buffered
@@ -227,7 +227,7 @@ class PPU:
             self.oamAddress = (self.oamAddress + 1) & 0xFF  
             address = (address + 1) & 0xFFFF
         cpu.stall += 513
-        if cpu.Cycles % 2 == 1:
+        if cpu.Cycles & 1 == 1:
             cpu.stall += 1
 
     def incrementX(self):
@@ -288,14 +288,14 @@ class PPU:
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address = (0x1000 * table + tile * 16 + fineY) & 0xFFFF
+        address = (0x1000 * table + (tile << 4) + fineY) & 0xFFFF
         self.lowTileByte = self.Read(address)
 
     def fetchHighTileByte(self):
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address_8 = (0x1000 * table + tile * 16 + fineY + 8) & 0xFFFF
+        address_8 = (0x1000 * table + (tile << 4) + fineY + 8) & 0xFFFF
         self.highTileByte = self.Read(address_8)
 
     def storeTileData(self):
@@ -316,7 +316,7 @@ class PPU:
     def backgroundPixel(self):
         if self.flagShowBackground == 0:
             return 0
-        data = self.fetchTileData() >> ((7 - self.x) * 4)
+        data = self.fetchTileData() >> ((7 - self.x) << 2)
         return (data & 0x0F) & 0xFF
 
     def spritePixel(self): 
@@ -327,8 +327,8 @@ class PPU:
             if offset < 0 or offset > 7:
                 continue
             offset = 7 - offset
-            color = (self.spritePatterns[i] >> (offset * 4)) & 0x0F
-            if color % 4 == 0:
+            color = (self.spritePatterns[i] >> (offset << 2)) & 0x0F
+            if color & 0x3 == 0:
                 continue
             return i, color
         return 0,0 
@@ -342,8 +342,8 @@ class PPU:
             background = 0
         if x < 8 and self.flagShowLeftSprites == 0:
             sprite = 0
-        b = (background % 4 != 0)
-        s = (sprite % 4 != 0)
+        b = (background & 0x3 != 0)
+        s = (sprite & 0x3 != 0)
         color = 0
         if not b and not s:
             color = 0
@@ -358,18 +358,19 @@ class PPU:
                 color = sprite | 0x10
             else:
                 color = background
-        c = Palette[self.readPalette(color) % 64]
+        c = Palette[self.readPalette(color) & 0x3F]
         self.back[y,x] = c
 
     def fetchSpritePattern(self, i, row):
-        tile = self.oamData[i * 4 + 1]
-        attributes = self.oamData[i * 4 + 2]
+        k = (i << 2) + 1
+        tile = self.oamData[k]
+        attributes = self.oamData[k + 1]
         address = 0
         if self.flagSpriteSize == 0:
             if attributes&0x80 == 0x80:
                 row = 7 - row
             table = self.flagSpriteTable
-            address = (0x1000 * table + tile * 16 + row) & 0xFFFF
+            address = (0x1000 * table + (tile << 4) + row) & 0xFFFF
         else:
             if attributes & 0x80 == 0x80:
                 row = 15 - row
@@ -378,7 +379,7 @@ class PPU:
             if row > 7:
                 tile += 1
                 row -= 8
-            address = (0x1000 * table + tile * 16 + row) & 0xFFFF
+            address = (0x1000 * table + (tile << 4) + row) & 0xFFFF
         a = ((attributes & 3) << 2) & 0xFF
         lowTileByte = self.Read(address)
         highTileByte = self.Read((address + 8) & 0xFFFF)
@@ -405,9 +406,10 @@ class PPU:
             h = 16
         count = 0
         for i in range(64):
-            y = self.oamData[i * 4 + 0]
-            a = self.oamData[i * 4 + 2]
-            x = self.oamData[i * 4 + 3]
+            k = (i << 2)
+            y = self.oamData[k]
+            a = self.oamData[k + 2]
+            x = self.oamData[k + 3]
             row = self.ScanLine - y
             if row < 0 or row >= h:
                 continue
@@ -462,7 +464,7 @@ class PPU:
                 self.renderPixel()
             if renderLine and fetchCycle:
                 self.tileData <<= 4
-                c = self.Cycle % 8
+                c = self.Cycle & 0x7
                 if c == 1:
                     self.fetchNameTableByte()
                 elif c == 3:
@@ -477,7 +479,7 @@ class PPU:
             if preLine and self.Cycle >= 280 and self.Cycle <= 304:
                 self.copyY()
             if renderLine:
-                if fetchCycle and self.Cycle % 8 == 0:
+                if fetchCycle and self.Cycle & 0x7 == 0:
                     self.incrementX()
                 if self.Cycle == 256:
                     self.incrementY()

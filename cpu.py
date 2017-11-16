@@ -121,9 +121,9 @@ class CPU:
     
     def Read(self, address):
         if address < 0x2000:
-            return self.console.RAM[address % 0x0800]
+            return self.console.RAM[address & 0x07FF]
         elif address < 0x4000:
-            return self.console.PPU.readRegister((0x2000 + address % 8) & 0xFFFF)
+            return self.console.PPU.readRegister(0x2000 | (address & 0x7))
         elif address == 0x4014:
             return self.console.PPU.readRegister(address)
         elif address == 0x4015:
@@ -140,9 +140,9 @@ class CPU:
 
     def Write(self, address, value):
         if address < 0x2000:
-            self.console.RAM[address % 0x0800] = value
+            self.console.RAM[address & 0x07FF] = value
         elif address < 0x4000:
-            self.console.PPU.writeRegister((0x2000 + address % 8) & 0xFFFF, value)
+            self.console.PPU.writeRegister(0x2000 | (address & 0x7), value)
         elif address < 0x4014:
             self.console.APU.writeRegister(address, value)
         elif address == 0x4014:
@@ -224,7 +224,7 @@ class CPU:
 
         CPU.MODES_FUNC[mode](self)
 
-        self.PrintInstruction()
+        #self.PrintInstruction()
         self.PC += instructionSizes[opcode]
         self.Cycles += instructionCycles[opcode]
 
