@@ -3,6 +3,7 @@ from defines import *
 from view import *
 import glfw
 import ctypes
+import numpy as np
 
 class GameView(View):
     def __init__(self, director, console, title, _hash):
@@ -15,6 +16,7 @@ class GameView(View):
         self.frames = None
     def Enter(self):
         glClearColor(0, 0, 0, 1)
+        glEnable(GL_TEXTURE_2D)
         self.director.SetTitle(self.title)
         #self.console.SetAudioChannel(self.director.audio.channel)
         # TODO
@@ -63,12 +65,7 @@ class GameView(View):
 
     def setTexture(self, im):
         shape = im.shape
-        '''
-        import matplotlib.pyplot as plt
-        plt.imshow(im)
-        plt.show()
-        '''
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shape[0], shape[1], 0, GL_RGB, GL_UNSIGNED_BYTE, im.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8)))
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shape[1], shape[0], 0, GL_RGB, GL_UNSIGNED_BYTE, im)
 
     def drawBuffer(self, window):
         w, h = glfw.get_framebuffer_size(window)

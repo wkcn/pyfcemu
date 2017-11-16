@@ -21,13 +21,19 @@ class Console:
         self.CPU.Reset()
     
     def Step(self):
+        #ot = time.time()
         cpuCycles = self.CPU.Step()
         ppuCycles = cpuCycles * 3
         for i in range(ppuCycles):
             self.PPU.Step()
             self.Mapper.Step()
-        for i in range(cpuCycles):
-            self.APU.Step()
+        #for i in range(cpuCycles):
+        #    self.APU.Step()
+        '''
+        dt = time.time() - ot
+        if dt > 0:
+            print ("Hz: ", cpuCycles * 1.0 / dt, cpuCycles)
+        '''
         return cpuCycles
 
     def StepFrame(self):
@@ -39,11 +45,8 @@ class Console:
 
     def StepSeconds(self, seconds):
         cycles = int(CPUFrequency * seconds)
-        oldc = cycles
-        ot = time.time()
         while cycles > 0:
             cycles -= self.Step()
-        print ("Hz: ", (oldc - cycles) * 1.0 / (time.time() - ot), cycles, seconds)
 
     def Buffer(self):
         return self.PPU.front 

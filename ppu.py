@@ -288,36 +288,35 @@ class PPU:
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address = (0x1000 * table + (tile << 4) + fineY) & 0xFFFF
+        address = ((table << 12) + (tile << 4) + fineY) & 0xFFFF
         self.lowTileByte = self.Read(address)
 
     def fetchHighTileByte(self):
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address_8 = (0x1000 * table + (tile << 4) + fineY + 8) & 0xFFFF
+        address_8 = ((table << 12) + (tile << 4) + fineY + 8) & 0xFFFF
         self.highTileByte = self.Read(address_8)
 
     def storeTileData(self):
         data = 0
+        a = self.attributeTableByte
         for i in range(8):
-            a = self.attributeTableByte # todo
             p1 = (self.lowTileByte & 0x80) >> 7
             p2 = (self.highTileByte & 0x80) >> 6
-            self.lowTileByte = (self.lowTileByte << 1) & 0xFF
-            self.highTileByte = (self.highTileByte << 1) & 0xFF
+            self.lowTileByte <<= 1 
+            self.highTileByte <<= 1
             data <<= 4
             data |= (a | p1 | p2)
+        self.lowTileByte &= 0xFF
+        self.highTileByte &= 0xFF
         self.tileData |= data # uint64
-
-    def fetchTileData(self):
-        return self.tileData >> 32 # uint32
 
     def backgroundPixel(self):
         if self.flagShowBackground == 0:
             return 0
-        data = self.fetchTileData() >> ((7 - self.x) << 2)
-        return (data & 0x0F) & 0xFF
+        data = (self.tileData >> 32)  >> ((7 - self.x) << 2)
+        return data & 0x0F
 
     def spritePixel(self): 
         if self.flagShowSprites == 0:
@@ -370,7 +369,7 @@ class PPU:
             if attributes&0x80 == 0x80:
                 row = 7 - row
             table = self.flagSpriteTable
-            address = (0x1000 * table + (tile << 4) + row) & 0xFFFF
+            address = ((table << 12) + (tile << 4) + row) & 0xFFFF
         else:
             if attributes & 0x80 == 0x80:
                 row = 15 - row
@@ -379,8 +378,8 @@ class PPU:
             if row > 7:
                 tile += 1
                 row -= 8
-            address = (0x1000 * table + (tile << 4) + row) & 0xFFFF
-        a = ((attributes & 3) << 2) & 0xFF
+            address = ((table << 12)+ (tile << 4) + row) & 0xFFFF
+        a = (attributes & 3) << 2
         lowTileByte = self.Read(address)
         highTileByte = self.Read((address + 8) & 0xFFFF)
         data = 0
@@ -393,8 +392,8 @@ class PPU:
             else:
                 p1 = (lowTileByte & 0x80) >> 7
                 p2 = (highTileByte & 0x80) >> 6
-                lowTileByte = (lowTileByte << 1) & 0xFF
-                highTileByte = (highTileByte << 1) & 0xFF
+                lowTileByte = lowTileByte << 1
+                highTileByte = highTileByte << 1
             data <<= 4
             data |= (a | p1 | p2)
         return data
