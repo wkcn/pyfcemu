@@ -504,7 +504,8 @@ class APU:
             self.sendSample()
 
     def sendSample(apu):
-        output = apu.filterChain.Step(apu.output())
+        pass
+        #output = apu.filterChain.Step(apu.output())
         # TODO
 
     def output(apu):

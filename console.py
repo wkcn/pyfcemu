@@ -27,8 +27,8 @@ class Console:
         for i in range(ppuCycles):
             self.PPU.Step()
             self.Mapper.Step()
-        #for i in range(cpuCycles):
-        #    self.APU.Step()
+        for i in range(cpuCycles):
+            self.APU.Step()
         '''
         dt = time.time() - ot
         if dt > 0:
