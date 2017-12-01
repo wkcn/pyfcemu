@@ -32,7 +32,9 @@ class Console:
         '''
         dt = time.time() - ot
         if dt > 0:
-            print ("Hz: ", cpuCycles * 1.0 / dt, cpuCycles)
+            f = cpuCycles * 1.0 / dt
+            r = f / 17897.725
+            print ("Hz: ", f, r, r > 100)
         '''
         return cpuCycles
 

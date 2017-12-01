@@ -28,7 +28,7 @@ class PPU:
         self.nmiPrevious = False
         self.nmiDelay = 0
 
-        self.nameTableByte = 0
+        self.nameTableByte = 0 # byte
         self.attributeTableByte = 0
         self.lowTileByte = 0
         self.highTileByte = 0
@@ -43,7 +43,7 @@ class PPU:
         self.flagNameTable = 0
         self.flagIncrement = 0
         self.flagSpriteTable = 0
-        self.flagBackgroundTable = 0
+        self.flagBackgroundTable = 0 # bit
         self.flagSpriteSize = 0
         self.flagMasterSlave = 0
 
@@ -288,14 +288,14 @@ class PPU:
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address = ((table << 12) + (tile << 4) + fineY) & 0xFFFF
+        address = (table << 12) + (tile << 4) + fineY
         self.lowTileByte = self.Read(address)
 
     def fetchHighTileByte(self):
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
-        address_8 = ((table << 12) + (tile << 4) + fineY + 8) & 0xFFFF
+        address_8 = (table << 12) + (tile << 4) + fineY + 8
         self.highTileByte = self.Read(address_8)
 
     def storeTileData(self):
@@ -344,19 +344,26 @@ class PPU:
         b = (background & 0x3 != 0)
         s = (sprite & 0x3 != 0)
         color = 0
-        if not b and not s:
-            color = 0
-        elif not b and s:
-            color = sprite | 0x10
-        elif b and not s:
-            color = background
-        else:
-            if self.spriteIndexes[i] == 0 and x < 255:
-                self.flagSpriteZeroHit = 1 
-            if self.spritePriorities[i] == 0:
-                color = sprite | 0x10
+
+        if not b:
+            if not s:
+                color = 0
             else:
+                # not b and s
+                color = sprite | 0x10
+        else:
+            if not s:
+                # b and not s
                 color = background
+            else:
+                # b and s
+                if self.spriteIndexes[i] == 0 and x < 255:
+                    self.flagSpriteZeroHit = 1 
+                if self.spritePriorities[i] == 0:
+                    color = sprite | 0x10
+                else:
+                    color = background
+
         c = Palette[self.readPalette(color) & 0x3F]
         self.back[y,x] = c
 
@@ -366,7 +373,7 @@ class PPU:
         attributes = self.oamData[k + 1]
         address = 0
         if self.flagSpriteSize == 0:
-            if attributes&0x80 == 0x80:
+            if attributes & 0x80 == 0x80:
                 row = 7 - row
             table = self.flagSpriteTable
             address = ((table << 12) + (tile << 4) + row) & 0xFFFF
@@ -386,7 +393,7 @@ class PPU:
         for i in range(8):
             if attributes & 0x40 == 0x40:
                 p1 = (lowTileByte & 1)
-                p2 = ((highTileByte & 1) << 1) & 0xFF
+                p2 = (highTileByte & 1) << 1
                 lowTileByte >>= 1
                 highTileByte >>= 1
             else:
