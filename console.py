@@ -63,6 +63,12 @@ class Console:
         # TODO
         self.APU.sampleRate = CPUFrequency / sampleRate
 
+    def SetButtons1(self, buttons):
+        self.Controller1.SetButtons(buttons)
+    def SetButtons2(self, buttons):
+        self.Controller2.SetButtons(buttons)
+
+
 
 def NewConsole(path):
     cartridge, err = LoadNESFile(path)

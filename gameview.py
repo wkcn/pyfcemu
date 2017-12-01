@@ -4,6 +4,7 @@ from view import *
 import glfw
 import ctypes
 import numpy as np
+from controller import *
 
 class GameView(View):
     def __init__(self, director, console, title, _hash):
@@ -37,11 +38,13 @@ class GameView(View):
         pass
 
     def Update(self, t, dt):
-        if dt > 1:
-            dt = 0
+        #if dt > 1:
+        #    dt = 0
+        dt = 0.01
         window = self.director.window
         console = self.console
         # Joystick and key and controller
+        self.updateControllers(window, console)
         console.StepSeconds(dt)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         self.setTexture(console.Buffer())
@@ -89,3 +92,37 @@ class GameView(View):
         glTexCoord2f(0, 0)
         glVertex2f(-x, y)
         glEnd()
+
+    def updateControllers(self, window, console):
+        turbo = (console.PPU.Frame % 6) < 3
+        k1 = self.readKeys(window, turbo)
+        j1 = self.readJoystick(glfw.JOYSTICK_1, turbo)
+        j2 = self.readJoystick(glfw.JOYSTICK_2, turbo)
+        console.SetButtons1(self.combineButtons(k1, j1))
+        console.SetButtons2(j2)
+
+    def readKey(self, window, key):
+        return glfw.get_key(window, key) == glfw.PRESS
+
+    def readKeys(self, window, turbo):
+        result = [False for _ in range(8)]
+        result[ButtonA] = self.readKey(window, glfw.KEY_Z) or (turbo and self.readKey(window, glfw.KEY_A))
+        result[ButtonB] = self.readKey(window, glfw.KEY_X) or (turbo and self.readKey(window, glfw.KEY_S))
+        result[ButtonSelect] = self.readKey(window, glfw.KEY_RIGHT_SHIFT)
+        result[ButtonStart] = self.readKey(window, glfw.KEY_ENTER)
+        result[ButtonUp] = self.readKey(window, glfw.KEY_UP)
+        result[ButtonDown] = self.readKey(window, glfw.KEY_DOWN)
+        result[ButtonLeft] = self.readKey(window, glfw.KEY_LEFT)
+        result[ButtonRight] = self.readKey(window, glfw.KEY_RIGHT)
+        return result
+
+    def readJoystick(self, joy, turbo):
+        result = [False for _ in range(8)]
+        return result
+
+    def combineButtons(self, a, b):
+        result = [False for _ in range(8)]
+        for i in range(8):
+            result[i] = a[i] or b[i]
+        return result
+

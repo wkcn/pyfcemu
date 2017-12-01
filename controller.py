@@ -1,3 +1,5 @@
+ButtonA, ButtonB, ButtonSelect, ButtonStart, ButtonUp, ButtonDown, ButtonLeft, ButtonRight = range(8)
+
 class Controller:
     def __init__(self):
         self.buttons = [False for _ in range(8)] 

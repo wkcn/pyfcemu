@@ -125,7 +125,7 @@ class Pulse:
     def writeTimerHigh(p, value):
         p.lengthValue = lengthTable[value>>uint8(3)]
         p.timerPeriod = (p.timerPeriod & uint16(0x00FF)) | (uint16(value&uint8(7)) << uint16(8))
-        p.envelopeStart = true
+        p.envelopeStart = True
         p.dutyValue = uint8(0)
 
     def stepTimer(p):
