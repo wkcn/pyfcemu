@@ -493,7 +493,7 @@ class CPU:
             self.A >>= 1
             self.setZN(self.A)
         else:
-            value = slef.Read(info.address)
+            value = self.Read(info.address)
             self.C = value & 1
             value >>= 1
             self.Write(info.address, value)

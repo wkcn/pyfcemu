@@ -69,6 +69,11 @@ class PPU:
 
         self.Reset()
 
+        emptyFunc = lambda : 0 
+        self.step_func = [self.storeTileData, self.fetchNameTableByte, 
+                          emptyFunc, self.fetchAttributeTableByte, 
+                          emptyFunc, self.fetchLowTileByte,
+                          emptyFunc, self.fetchHighTileByte ]
     def Reset(self):
         self.Cycle = 340
         self.ScanLine = 240
@@ -406,10 +411,7 @@ class PPU:
         return data
 
     def evaluateSprites(self):
-        if self.flagSpriteSize == 0:
-            h = 8
-        else:
-            h = 16
+        h = 8 if self.flagSpriteSize == 0 else 16
         count = 0
         for i in range(64):
             k = (i << 2)
@@ -459,28 +461,19 @@ class PPU:
         renderingEnabled = (self.flagShowBackground != 0) or (self.flagShowSprites != 0)
         preLine = (self.ScanLine == 261)
         visibleLine = (self.ScanLine < 240)
-        renderLine = preLine or visibleLine
-        preFetchCycle = (self.Cycle >= 321) and (self.Cycle <= 336)
-        visibleCycle = (self.Cycle >= 1) and (self.Cycle <= 256)
-        fetchCycle = preFetchCycle or visibleCycle
 
         # background logic
         if renderingEnabled:
+            preFetchCycle = (self.Cycle >= 321) and (self.Cycle <= 336)
+            visibleCycle = (self.Cycle >= 1) and (self.Cycle <= 256)
+            fetchCycle = preFetchCycle or visibleCycle
+            renderLine = preLine or visibleLine
             if visibleLine and visibleCycle:
                 self.renderPixel()
             if renderLine and fetchCycle:
                 self.tileData <<= 4
                 c = self.Cycle & 0x7
-                if c == 1:
-                    self.fetchNameTableByte()
-                elif c == 3:
-                    self.fetchAttributeTableByte()
-                elif c == 5:
-                    self.fetchLowTileByte()
-                elif c == 7:
-                    self.fetchHighTileByte()
-                elif c == 0:
-                    self.storeTileData()
+                self.step_func[c]()
 
             if preLine and self.Cycle >= 280 and self.Cycle <= 304:
                 self.copyY()
@@ -491,8 +484,7 @@ class PPU:
                     self.incrementY()
                 if self.Cycle == 257:
                     self.copyX()
-        # sprite logic
-        if renderingEnabled:
+            # sprite logic
             if self.Cycle == 257:
                 if visibleLine:
                     self.evaluateSprites()
