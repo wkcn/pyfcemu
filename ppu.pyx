@@ -1,8 +1,38 @@
-import numpy as np
+from cpython cimport bool
 from memory import *
 from palette import *
+import numpy as np
+cimport numpy as np
 
-class PPU:
+ctypedef unsigned long long uint64
+ctypedef unsigned int uint32
+ctypedef unsigned short uint16
+ctypedef unsigned char uint8
+
+cdef class PPU:
+    cdef object console
+    cdef int Cycle 
+    cdef int ScanLine
+    cdef public uint64 Frame
+    cdef uint8 paletteData[32]
+    cdef uint8 nameTableData[2048]
+    cdef uint8 oamData[256]
+    cdef uint16 v, t
+    cdef uint8 x, w, f, register
+    cdef bool nmiOccurred, nmiOutput, nmiPrevious
+    cdef uint8 nmiDelay
+    cdef uint8 nameTableByte, attributeTableByte, lowTileByte, highTileByte
+    cdef uint64 tileData
+    cdef int spriteCount
+    cdef uint32 spritePatterns[8]
+    cdef uint8 spritePositions[8], spritePriorities[8], spriteIndexes[8]
+    cdef uint8 flagNameTable, flagIncrement, flagSpriteTable, flagBackgroundTable, flagSpriteSize, flagMasterSlave
+    cdef uint8 flagGrayscale, flagShowLeftBackground, flagShowLeftSprites, flagShowBackground, flagShowSprites, flagRedTint, flagGreenTint, flagBlueTint
+    cdef uint8 flagSpriteZeroHit, flagSpriteOverflow
+    cdef uint8 oamAddress
+    cdef uint8 bufferedData
+    cdef public np.ndarray front, back 
+    cdef object step_func
     def __init__(self, console):
         self.console = console
         self.Cycle = 0
@@ -88,9 +118,9 @@ class PPU:
             return self.console.Mapper.Read(address)
         elif address < 0x3F00:
             mode = self.console.Cartridge.Mirror
-            return self.console.PPU.nameTableData[MirrorAddress(mode, address) & 0x7FF]
+            return self.nameTableData[MirrorAddress(mode, address) & 0x7FF]
         elif address < 0x4000:
-            return self.console.PPU.readPalette(address & 0x1F)
+            return self.readPalette(address & 0x1F)
         else:
             raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
         return 0
@@ -101,18 +131,18 @@ class PPU:
             self.console.Mapper.Write(address, value)
         elif address < 0x3F00:
             mode = self.console.Cartridge.Mirror
-            self.console.PPU.nameTableData[MirrorAddress(mode, address) & 0x7FF] = value
+            self.nameTableData[MirrorAddress(mode, address) & 0x7FF] = value
         elif address < 0x4000:
-            self.console.PPU.writePalette(address & 0x1F, value)
+            self.writePalette(address & 0x1F, value)
         else:
             raise RuntimeError("Unhandled PPU Memory write at address: 0x%04X" % address)
 
-    def readPalette(self, address):
+    cdef uint8 readPalette(self, uint16 address):
         if address >= 16 and address & 0x3 == 0:
             address -= 16
         return self.paletteData[address]
 
-    def writePalette(self, address, value):
+    def writePalette(self, uint16 address, uint8 value):
         if address >= 16 and address & 0x3 == 0:
             address -= 16
         self.paletteData[address] = value
