@@ -204,7 +204,7 @@ cdef class PPU:
         self.flagMasterSlave = (value >> 6) & 1
         self.nmiOutput = (((value >> 7) & 1) == 1)
         self.nmiChange()
-        self.t = ((self.t & 0xF3FF) | (((value & 0x03) << 10) & 0xFFFF))
+        self.t = ((self.t & 0xF3FF) | (((value & 0x03) << 10)))
 
     cdef writeMask(self, uint8 value):
         self.flagGrayscale = (value >> 0) & 1
@@ -243,14 +243,14 @@ cdef class PPU:
             self.x = value & 0x07
             self.w = 1
         else:
-            self.t = (self.t & 0x8FFF) | (((value & 0x07) << 12) & 0xFFFF) 
-            self.t = (self.t & 0xFC1F) | (((value & 0xF8) << 2) & 0xFFFF) 
+            self.t = (self.t & 0x8FFF) | (((value & 0x07) << 12)) 
+            self.t = (self.t & 0xFC1F) | (((value & 0xF8) << 2)) 
             # self.t twice!
             self.w = 0
 
     cdef writeAddress(self, uint8 value):
         if self.w == 0:
-            self.t = (self.t & 0x80FF) | (((value & 0x3F) << 8) & 0xFFFF)
+            self.t = (self.t & 0x80FF) | (((value & 0x3F) << 8))
             self.w = 1
         else:
             self.t = (self.t & 0xFF00) | value
@@ -258,34 +258,35 @@ cdef class PPU:
             self.w = 0
 
     cdef uint8 readData(self):
-        value = self.Read(self.v)
+        cdef uint8 value = self.Read(self.v)
+        cdef uint8 buffered
         if self.v & 0x3FFF < 0x3F00:
             buffered = self.bufferedData
             self.bufferedData = value
             value = buffered
         else:
-            self.bufferedData = self.Read((self.v - 0x1000) & 0xFFFF) 
+            self.bufferedData = self.Read((self.v - 0x1000)) 
 
         if self.flagIncrement == 0:
-            self.v = (self.v + 1) & 0xFFFF
+            self.v = (self.v + 1)
         else:
-            self.v = (self.v + 32) & 0xFFFF
+            self.v = (self.v + 32)
         return value
 
     cdef writeData(self, uint8 value):
         self.Write(self.v, value)
         if self.flagIncrement == 0:
-            self.v = (self.v + 1) & 0xFFFF
+            self.v = (self.v + 1)
         else:
-            self.v = (self.v + 32) & 0xFFFF
+            self.v = (self.v + 32)
 
     cdef writeDMA(self, uint8 value):
         cpu = self.console.CPU
-        address = (value << 8) & 0xFFFF
-        for i in range(256):
+        cdef uint16 address = (value << 8)
+        for _ in range(256):
             self.oamData[self.oamAddress] = cpu.Read(address)
-            self.oamAddress = (self.oamAddress + 1) & 0xFF  
-            address = (address + 1) & 0xFFFF
+            self.oamAddress = (self.oamAddress + 1)
+            address = (address + 1)
         cpu.stall += 513
         if cpu.Cycles & 1 == 1:
             cpu.stall += 1
@@ -295,11 +296,12 @@ cdef class PPU:
             self.v &= 0xFFE0
             self.v ^= 0x0400
         else:
-            self.v = (self.v + 1) & 0xFFFF 
+            self.v = (self.v + 1)
 
     cdef incrementY(self):
+        cdef uint16 y
         if self.v & 0x7000 != 0x7000:
-            self.v = (self.v + 0x1000) & 0xFFFF 
+            self.v = (self.v + 0x1000)
         else:
             self.v &= 0x8FFF
             y = (self.v & 0x03E0) >> 5
@@ -309,8 +311,8 @@ cdef class PPU:
             elif y == 31:
                 y = 0
             else:
-                y = (y + 1) & 0xFFFF
-            self.v = (self.v & 0xFC1F) | ((y << 5) & 0xFFFF)
+                y = (y + 1)
+            self.v = (self.v & 0xFC1F) | (y << 5)
 
     cdef copyX(self):
         self.v = (self.v & 0xFBE0) | (self.t & 0x041F)
@@ -319,6 +321,7 @@ cdef class PPU:
         self.v = (self.v & 0x841F) | (self.t & 0x7BE0)
 
     cdef nmiChange(self):
+        cdef bool nmi
         nmi = (self.nmiOutput and self.nmiOccurred)
         if nmi and not self.nmiPrevious:
             self.nmiDelay = 15
@@ -334,17 +337,21 @@ cdef class PPU:
         self.nmiChange()
 
     cdef fetchNameTableByte(self):
+        cdef uint16 v
         v = self.v
         address = 0x2000 | (v & 0x0FFF)
         self.nameTableByte = self.Read(address)
 
     cdef fetchAttributeTableByte(self):
+        cdef uint16 v
         v = self.v
         address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07) 
         shift = ((v >> 4) & 4) | (v & 2)
-        self.attributeTableByte = (((self.Read(address) >> shift) & 3) << 2) & 0xFF
+        self.attributeTableByte = (((self.Read(address) >> shift) & 3) << 2)
 
     cdef fetchLowTileByte(self):
+        cdef uint8 fineY, table, tile
+        cdef uint16 address
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
@@ -352,6 +359,8 @@ cdef class PPU:
         self.lowTileByte = self.Read(address)
 
     cdef fetchHighTileByte(self):
+        cdef uint8 fineY, table, tile
+        cdef uint16 address_8
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
@@ -359,6 +368,8 @@ cdef class PPU:
         self.highTileByte = self.Read(address_8)
 
     cdef storeTileData(self):
+        cdef uint32 data
+        cdef uint8 a, p1, p2
         data = 0
         a = self.attributeTableByte
         for i in range(8):
@@ -368,17 +379,19 @@ cdef class PPU:
             self.highTileByte <<= 1
             data <<= 4
             data |= (a | p1 | p2)
-        self.lowTileByte &= 0xFF
-        self.highTileByte &= 0xFF
         self.tileData |= data # uint64
 
-    cdef backgroundPixel(self):
+    cdef uint8 backgroundPixel(self):
+        cdef uint8 data
         if self.flagShowBackground == 0:
             return 0
         data = (self.tileData >> 32)  >> ((7 - self.x) << 2)
         return data & 0x0F
 
     cdef spritePixel(self): 
+        cdef int i
+        cdef int offset
+        cdef uint8 color
         if self.flagShowSprites == 0:
             return 0,0 
         for i in range(self.spriteCount):
@@ -393,6 +406,10 @@ cdef class PPU:
         return 0,0 
 
     cdef renderPixel(self):
+        cdef int x,y
+        cdef uint8 background, color
+        cdef uint8 i, sprite 
+        cdef bool b, s
         x = self.Cycle - 1
         y = self.ScanLine
         background = self.backgroundPixel()
@@ -430,7 +447,13 @@ cdef class PPU:
         self.back[p + 1] = c[1]
         self.back[p + 2] = c[2]
 
-    cdef fetchSpritePattern(self, i, row):
+    cdef uint32 fetchSpritePattern(self, int i, int row):
+        cdef int k
+        cdef uint8 tile, attributes, a
+        cdef uint16 address 
+        cdef uint8 table, lowTileByte, highTileByte
+        cdef uint32 data
+        cdef uint8 p1, p2
         k = (i << 2) + 1
         tile = self.oamData[k]
         attributes = self.oamData[k + 1]
@@ -439,7 +462,7 @@ cdef class PPU:
             if attributes & 0x80 == 0x80:
                 row = 7 - row
             table = self.flagSpriteTable
-            address = ((table << 12) + (tile << 4) + row) & 0xFFFF
+            address = ((table << 12) + (tile << 4) + row)
         else:
             if attributes & 0x80 == 0x80:
                 row = 15 - row
@@ -448,10 +471,10 @@ cdef class PPU:
             if row > 7:
                 tile += 1
                 row -= 8
-            address = ((table << 12)+ (tile << 4) + row) & 0xFFFF
+            address = ((table << 12)+ (tile << 4) + row)
         a = (attributes & 3) << 2
         lowTileByte = self.Read(address)
-        highTileByte = self.Read((address + 8) & 0xFFFF)
+        highTileByte = self.Read((address + 8))
         data = 0
         for i in range(8):
             if attributes & 0x40 == 0x40:
@@ -469,6 +492,8 @@ cdef class PPU:
         return data
 
     cdef evaluateSprites(self):
+        cdef int h, count, i
+        cdef uint8 y, a, x
         h = 8 if self.flagSpriteSize == 0 else 16
         count = 0
         for i in range(64):
@@ -514,6 +539,9 @@ cdef class PPU:
                 self.f ^= 1
 
     cpdef Step(self):
+        cdef bool renderingEnabled, preLine, visibleLine
+        cdef bool preFetchCycle, visibleCycle, fetchCycle, renderLine
+        cdef uint8 c
         self.tick()
 
         renderingEnabled = (self.flagShowBackground != 0) or (self.flagShowSprites != 0)

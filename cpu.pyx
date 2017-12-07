@@ -126,8 +126,8 @@ cdef class CPU:
         if self.pagesDiffer(info.pc, info.address):
             self.Cycles += 1
 
-    def compare(self, a, b):
-        self.setZN((a - b) & 0xFF)
+    cdef compare(self, uint8 a, uint8 b):
+        self.setZN((a - b))
         self.C = 1 if a >= b else 0
     
     cpdef uint8 Read(self, uint16 address):
@@ -171,13 +171,13 @@ cdef class CPU:
             self.console.Mapper.Write(address, value)
 
     # Read16 reads two uint8s using Read to return a double-word value
-    def Read16(self, address):
+    cpdef uint16 Read16(self, uint16 address):
         lo = self.Read(address)
-        hi = self.Read((address + 1) & 0xFFFF)
+        hi = self.Read((address + 1))
         return (hi << 8) | lo
 
     # read16bug emulates a 6502 bug that caused the low uint8 to wrap without
-    def read16bug(self, address):
+    cpdef uint16 read16bug(self, uint16 address):
         a = address
         b = (a & 0xFF00) | ((a + 1) & 0xFF)
         lo = self.Read(a)
@@ -185,29 +185,33 @@ cdef class CPU:
         return (hi << 8) | lo
 
     # push pushes a uint8 onto the stack
-    def push(self, value):
+    cpdef push(self, uint8 value):
         self.Write(0x100 | self.SP, value)
         self.SP = (self.SP - 1) & 0xFF 
 
     # pull pops a uint8 from the stack
-    def pull(self):
+    cpdef uint8 pull(self):
         self.SP = (self.SP + 1) & 0xFF 
         return self.Read(0x100 | self.SP)
 
     # push16 pushes two uint8s onto the stack
-    def push16(self, value):
+    cpdef push16(self, uint16 value):
+        cdef uint8 hi, lo
         hi = value >> 8
         lo = value & 0xFF
         self.push(hi)
         self.push(lo)
 
     # pull16 pops two uint8s from the stack
-    def pull16(self):
+    cpdef uint16 pull16(self):
+        cdef uint16 lo, hi
         lo = self.pull()
         hi = self.pull()
         return (hi << 8) | lo
 
     cpdef Step(self):
+        cdef uint64 cycles
+        cdef uint8 opcode
         if self.stall > 0:
             self.stall -= 1
             return 1
@@ -479,7 +483,7 @@ cdef class CPU:
 
     # JSR - Jump to Subroutine
     def jsr(self, info):
-        self.push16((self.PC - 1) & 0xFFFF)
+        self.push16((self.PC - 1))
         self.PC = info.address
 
     # LDA - Load Accumulator
@@ -573,7 +577,7 @@ cdef class CPU:
 
     # RTS - Return from Subroutine
     def rts(self, info):
-        self.PC = (self.pull16() + 1) & 0xFFFF
+        self.PC = (self.pull16() + 1)
 
     # SBC - Subtract with Carry
     def sbc(self, info):
