@@ -3,8 +3,9 @@ from defines import *
 from view import *
 import glfw
 import ctypes
-import numpy as np
 from controller import *
+import array
+from itertools import chain
 
 class GameView(View):
     def __init__(self, director, console, title, _hash):
@@ -67,8 +68,9 @@ class GameView(View):
         return texture
 
     def setTexture(self, im):
-        shape = im.shape
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shape[1], shape[0], 0, GL_RGB, GL_UNSIGNED_BYTE, im)
+        #shape = im.shape
+        #glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, shape[1], shape[0], 0, GL_RGB, GL_UNSIGNED_BYTE, im)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 240, 0, GL_RGB, GL_UNSIGNED_BYTE, bytes(im))
 
     def drawBuffer(self, window):
         w, h = glfw.get_framebuffer_size(window)

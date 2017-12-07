@@ -1,6 +1,8 @@
+from cpython cimport bool
 from defines import *
 from memory import *
 import cpu_func as CPU_FUNC
+include "cdefines.pyx" 
 
 class stepInfo:
     def __init__(self, address = None, pc = None, mode = None):
@@ -8,7 +10,7 @@ class stepInfo:
         self.pc = pc
         self.mode = mode 
 
-class CPU:
+cdef class CPU:
     MODES_FUNC = {
             modeAbsolute: CPU_FUNC.modeAbsoluteFunc, 
             modeAbsoluteX: CPU_FUNC.modeAbsoluteXFunc, modeAbsoluteY: CPU_FUNC.modeAbsoluteYFunc, 
@@ -20,9 +22,18 @@ class CPU:
             modeIndirectIndexed: CPU_FUNC.modeIndirectIndexedFunc,
             modeRelative: CPU_FUNC.modeRelativeFunc,
             modeZeroPage: CPU_FUNC.modeZeroPageFunc,
-            modeZeroPageX: CPU_FUNC.modeZeroPageX,
-            modeZeroPageY: CPU_FUNC.modeZeroPageY
+            modeZeroPageX: CPU_FUNC.modeZeroPageXFunc,
+            modeZeroPageY: CPU_FUNC.modeZeroPageYFunc
     }
+    cdef object Memory
+    cdef public uint64 Cycles
+    cdef public uint16 PC
+    cdef public uint8 SP, A, X, Y, C, Z, I, D, B, U, V, N, interrupt
+    cdef public int stall
+    cdef object table
+    cdef public uint16 address
+    cdef public bool pageCrossed
+    cdef object console
     def __init__(self, console):
         self.Memory = None # Memory Interface
         self.Cycles = 0 # Number of Cycles
@@ -119,7 +130,7 @@ class CPU:
         self.setZN((a - b) & 0xFF)
         self.C = 1 if a >= b else 0
     
-    def Read(self, address):
+    cpdef uint8 Read(self, uint16 address):
         if address < 0x2000:
             return self.console.RAM[address & 0x07FF]
         elif address < 0x4000:
@@ -138,7 +149,7 @@ class CPU:
             return self.console.Mapper.Read(address)
         return 0
 
-    def Write(self, address, value):
+    cpdef Write(self, uint16 address, uint8 value):
         if address < 0x2000:
             self.console.RAM[address & 0x07FF] = value
         elif address < 0x4000:
@@ -196,7 +207,7 @@ class CPU:
         hi = self.pull()
         return (hi << 8) | lo
 
-    def Step(self):
+    cpdef Step(self):
         if self.stall > 0:
             self.stall -= 1
             return 1

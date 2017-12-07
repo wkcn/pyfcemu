@@ -1,6 +1,5 @@
-import numpy as np
-
-Palette = np.zeros((64, 3))
+include "cdefines.pyx"
+cdef public uint8 Palette[64][3]
 
 colors = [
 		0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00,
@@ -13,7 +12,9 @@ colors = [
 		0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC, 0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000]
 
 for i, c in enumerate(colors):
-    r = np.uint8(c >> 16)
-    g = np.uint8(c >> 8)
-    b = np.uint8(c)
-    Palette[i] = [r,g,b] 
+    r = (c >> 16) & 0xFF
+    g = (c >> 8) & 0xFF
+    b = (c) & 0xFF
+    Palette[i][0] = r 
+    Palette[i][1] = g 
+    Palette[i][2] = b

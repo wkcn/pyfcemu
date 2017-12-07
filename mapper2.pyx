@@ -1,4 +1,11 @@
-class Mapper2:
+ctypedef unsigned long long uint64
+ctypedef unsigned int uint32
+ctypedef unsigned short uint16
+ctypedef unsigned char uint8
+
+cdef class Mapper2:
+    cdef int prgBanks, prgBank1, prgBank2
+    cdef object cartridge
     def __init__(self, cartridge):
         self.prgBanks = len(cartridge.PRG) // 0x4000
         self.prgBank1 = 0
@@ -18,7 +25,7 @@ class Mapper2:
     def Step(self):
         pass
 
-    def Read(self, address):
+    cpdef uint8 Read(self, uint16 address):
         if address < 0x2000:
             return self.cartridge.CHR[address]
         elif address >= 0xC000:
@@ -34,7 +41,7 @@ class Mapper2:
         else:
             raise ("Unhandled Mapper2 read at address: 0x%04X" % address)
 
-    def Write(self, address, value):
+    cpdef Write(self, uint16 address, uint8 value):
         if address < 0x2000:
             self.cartridge.CHR[address] = value
         elif address >= 0x8000:

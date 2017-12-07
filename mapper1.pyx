@@ -1,12 +1,15 @@
 from defines import *
 from memory import *
 
+'''
 MIRRORS = [
         MirrorSingle0,
         MirrorSingle1,
         MirrorVertical,
         MirrorHorizontal
 ]
+'''
+MIRRORS = [2,3,1,0]
 
 class Mapper1:
     def __init__(self, cartridge):

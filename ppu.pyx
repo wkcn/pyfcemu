@@ -1,13 +1,8 @@
-from cpython cimport bool
 from memory import *
-from palette import *
-import numpy as np
-cimport numpy as np
+include "palette.pyx"
 
-ctypedef unsigned long long uint64
-ctypedef unsigned int uint32
-ctypedef unsigned short uint16
-ctypedef unsigned char uint8
+ctypedef void (*FUNC)(object)
+ctypedef void (*FUNC_b)(object, uint8)
 
 cdef class PPU:
     cdef object console
@@ -25,14 +20,18 @@ cdef class PPU:
     cdef uint64 tileData
     cdef int spriteCount
     cdef uint32 spritePatterns[8]
-    cdef uint8 spritePositions[8], spritePriorities[8], spriteIndexes[8]
+    cdef uint8 spritePositions[8]
+    cdef uint8 spritePriorities[8]
+    cdef uint8 spriteIndexes[8]
     cdef uint8 flagNameTable, flagIncrement, flagSpriteTable, flagBackgroundTable, flagSpriteSize, flagMasterSlave
     cdef uint8 flagGrayscale, flagShowLeftBackground, flagShowLeftSprites, flagShowBackground, flagShowSprites, flagRedTint, flagGreenTint, flagBlueTint
     cdef uint8 flagSpriteZeroHit, flagSpriteOverflow
     cdef uint8 oamAddress
     cdef uint8 bufferedData
-    cdef public np.ndarray front, back 
-    cdef object step_func
+    cdef public object front
+    cdef public object back
+    cdef FUNC step_func[8]
+    cdef FUNC_b write_reg_ops[8]
     def __init__(self, console):
         self.console = console
         self.Cycle = 0
@@ -94,17 +93,26 @@ cdef class PPU:
 
         # width: 256
         # height: 240
-        self.front = np.zeros((240, 256, 3), dtype = np.uint8)
-        self.back = np.zeros((240, 256, 3), dtype = np.uint8)
+        #self.front = np.zeros((240, 256, 3), dtype = np.uint8)
+        #self.back = np.zeros((240, 256, 3), dtype = np.uint8)
+        self.front = [0 for _ in range(240 * 256 * 3)]
+        self.back = [0 for _ in range(240 * 256 * 3)]
 
         self.Reset()
 
-        emptyFunc = lambda : 0 
+        '''
         self.step_func = [self.storeTileData, self.fetchNameTableByte, 
-                          emptyFunc, self.fetchAttributeTableByte, 
-                          emptyFunc, self.fetchLowTileByte,
-                          emptyFunc, self.fetchHighTileByte ]
-    def Reset(self):
+                          self.emptyFunc, self.fetchAttributeTableByte, 
+                          self.emptyFunc, self.fetchLowTileByte,
+                          self.emptyFunc, self.fetchHighTileByte ]
+
+        self.write_reg_ops = [self.writeControl, self.writeMask, self.emptyFunc_b, self.writeOAMAddress, self.writeOAMData, self.writeScroll, self.writeAddress, self.writeData]
+        '''
+    cdef emptyFunc(self):
+        pass
+    cdef emptyFunc_b(self, uint8):
+        pass
+    cdef Reset(self):
         self.Cycle = 340
         self.ScanLine = 240
         self.Frame = 0
@@ -112,7 +120,7 @@ cdef class PPU:
         self.writeMask(0)
         self.writeOAMAddress(0)
 
-    def Read(self, address):
+    cdef uint8 Read(self, uint16 address):
         address = address & 0x3FFF
         if address < 0x2000:
             return self.console.Mapper.Read(address)
@@ -121,11 +129,9 @@ cdef class PPU:
             return self.nameTableData[MirrorAddress(mode, address) & 0x7FF]
         elif address < 0x4000:
             return self.readPalette(address & 0x1F)
-        else:
-            raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
-        return 0
+        raise RuntimeError("Unhandled PPU Memory read at address: 0x%04X" % address)
 
-    def Write(self, address, value):
+    cdef Write(self, uint16 address, uint8 value):
         address = address & 0x3FFF
         if address < 0x2000:
             self.console.Mapper.Write(address, value)
@@ -142,12 +148,12 @@ cdef class PPU:
             address -= 16
         return self.paletteData[address]
 
-    def writePalette(self, uint16 address, uint8 value):
+    cdef writePalette(self, uint16 address, uint8 value):
         if address >= 16 and address & 0x3 == 0:
             address -= 16
         self.paletteData[address] = value
 
-    def readRegister(self, address):
+    cpdef uint8 readRegister(self, uint16 address):
         if address == 0x2002:
             return self.readStatus()
         elif address == 0x2004:
@@ -156,8 +162,26 @@ cdef class PPU:
             return self.readData()
         return 0
 
-    def writeRegister(self, address, value):
+    cpdef writeRegister(self, uint16 address, uint8 value):
         self.register = value
+        if address == 0x4014:
+            self.writeDMA(value)
+        elif address == 0x2000:
+            self.writeControl(value)
+        elif address == 0x2001:
+            self.writeMask(value)
+        elif address == 0x2003:
+            self.writeOAMAddress(value)
+        elif address == 0x2004:
+            self.writeOAMData(value)
+        elif address == 0x2005:
+            self.writeScroll(value)
+        elif address == 0x2006:
+            self.writeAddress(value)
+        elif address == 0x2007:
+            self.writeData(value)
+            #self.write_reg_ops[address - 0x2000](value)
+        '''
         ops = {
                 0x2000: self.writeControl,
                 0x2001: self.writeMask,
@@ -169,8 +193,9 @@ cdef class PPU:
                 0x4014: self.writeDMA
         }
         ops[address](value)
+        '''
 
-    def writeControl(self, value):
+    cdef writeControl(self, uint8 value):
         self.flagNameTable = (value >> 0) & 3
         self.flagIncrement = (value >> 2) & 1
         self.flagSpriteTable = (value >> 3) & 1
@@ -181,7 +206,7 @@ cdef class PPU:
         self.nmiChange()
         self.t = ((self.t & 0xF3FF) | (((value & 0x03) << 10) & 0xFFFF))
 
-    def writeMask(self, value):
+    cdef writeMask(self, uint8 value):
         self.flagGrayscale = (value >> 0) & 1
         self.flagShowLeftBackground = (value >> 1) & 1
         self.flagShowLeftSprites = (value >> 2) & 1
@@ -191,7 +216,7 @@ cdef class PPU:
         self.flagGreenTint = (value >> 6) & 1
         self.flagBlueTint = (value >> 7) & 1
 
-    def readStatus(self):
+    cdef uint8 readStatus(self):
         result = self.register & 0x1F
         result |= (self.flagSpriteOverflow << 5)
         result |= (self.flagSpriteZeroHit << 6)
@@ -202,17 +227,17 @@ cdef class PPU:
         self.w = 0
         return result
 
-    def writeOAMAddress(self, value):
+    cdef writeOAMAddress(self, uint8 value):
         self.oamAddress = value
 
-    def readOAMData(self):
+    cdef uint8 readOAMData(self):
         return self.oamData[self.oamAddress]
 
-    def writeOAMData(self, value):
+    cdef writeOAMData(self, uint8 value):
         self.oamData[self.oamAddress] = value
         self.oamAddress = (self.oamAddress + 1) & 0xFF 
 
-    def writeScroll(self, value):
+    cdef writeScroll(self, uint8 value):
         if self.w == 0:
             self.t = (self.t & 0xFFE0) | (value >> 3) 
             self.x = value & 0x07
@@ -223,7 +248,7 @@ cdef class PPU:
             # self.t twice!
             self.w = 0
 
-    def writeAddress(self, value):
+    cdef writeAddress(self, uint8 value):
         if self.w == 0:
             self.t = (self.t & 0x80FF) | (((value & 0x3F) << 8) & 0xFFFF)
             self.w = 1
@@ -232,7 +257,7 @@ cdef class PPU:
             self.v = self.t
             self.w = 0
 
-    def readData(self):
+    cdef uint8 readData(self):
         value = self.Read(self.v)
         if self.v & 0x3FFF < 0x3F00:
             buffered = self.bufferedData
@@ -247,14 +272,14 @@ cdef class PPU:
             self.v = (self.v + 32) & 0xFFFF
         return value
 
-    def writeData(self, value):
+    cdef writeData(self, uint8 value):
         self.Write(self.v, value)
         if self.flagIncrement == 0:
             self.v = (self.v + 1) & 0xFFFF
         else:
             self.v = (self.v + 32) & 0xFFFF
 
-    def writeDMA(self, value):
+    cdef writeDMA(self, uint8 value):
         cpu = self.console.CPU
         address = (value << 8) & 0xFFFF
         for i in range(256):
@@ -265,14 +290,14 @@ cdef class PPU:
         if cpu.Cycles & 1 == 1:
             cpu.stall += 1
 
-    def incrementX(self):
+    cdef incrementX(self):
         if self.v & 0x001F == 31:
             self.v &= 0xFFE0
             self.v ^= 0x0400
         else:
             self.v = (self.v + 1) & 0xFFFF 
 
-    def incrementY(self):
+    cdef incrementY(self):
         if self.v & 0x7000 != 0x7000:
             self.v = (self.v + 0x1000) & 0xFFFF 
         else:
@@ -287,53 +312,53 @@ cdef class PPU:
                 y = (y + 1) & 0xFFFF
             self.v = (self.v & 0xFC1F) | ((y << 5) & 0xFFFF)
 
-    def copyX(self):
+    cdef copyX(self):
         self.v = (self.v & 0xFBE0) | (self.t & 0x041F)
 
-    def copyY(self):
+    cdef copyY(self):
         self.v = (self.v & 0x841F) | (self.t & 0x7BE0)
 
-    def nmiChange(self):
+    cdef nmiChange(self):
         nmi = (self.nmiOutput and self.nmiOccurred)
         if nmi and not self.nmiPrevious:
             self.nmiDelay = 15
         self.nmiPrevious = nmi
 
-    def setVerticalBlank(self):
+    cdef setVerticalBlank(self):
         self.front, self.back = self.back, self.front
         self.nmiOccurred = True
         self.nmiChange()
 
-    def clearVerticalBlank(self):
+    cdef clearVerticalBlank(self):
         self.nmiOccurred = False
         self.nmiChange()
 
-    def fetchNameTableByte(self):
+    cdef fetchNameTableByte(self):
         v = self.v
         address = 0x2000 | (v & 0x0FFF)
         self.nameTableByte = self.Read(address)
 
-    def fetchAttributeTableByte(self):
+    cdef fetchAttributeTableByte(self):
         v = self.v
         address = 0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07) 
         shift = ((v >> 4) & 4) | (v & 2)
         self.attributeTableByte = (((self.Read(address) >> shift) & 3) << 2) & 0xFF
 
-    def fetchLowTileByte(self):
+    cdef fetchLowTileByte(self):
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
         address = (table << 12) + (tile << 4) + fineY
         self.lowTileByte = self.Read(address)
 
-    def fetchHighTileByte(self):
+    cdef fetchHighTileByte(self):
         fineY = (self.v >> 12) & 7
         table = self.flagBackgroundTable
         tile = self.nameTableByte
         address_8 = (table << 12) + (tile << 4) + fineY + 8
         self.highTileByte = self.Read(address_8)
 
-    def storeTileData(self):
+    cdef storeTileData(self):
         data = 0
         a = self.attributeTableByte
         for i in range(8):
@@ -347,13 +372,13 @@ cdef class PPU:
         self.highTileByte &= 0xFF
         self.tileData |= data # uint64
 
-    def backgroundPixel(self):
+    cdef backgroundPixel(self):
         if self.flagShowBackground == 0:
             return 0
         data = (self.tileData >> 32)  >> ((7 - self.x) << 2)
         return data & 0x0F
 
-    def spritePixel(self): 
+    cdef spritePixel(self): 
         if self.flagShowSprites == 0:
             return 0,0 
         for i in range(self.spriteCount):
@@ -367,7 +392,7 @@ cdef class PPU:
             return i, color
         return 0,0 
 
-    def renderPixel(self):
+    cdef renderPixel(self):
         x = self.Cycle - 1
         y = self.ScanLine
         background = self.backgroundPixel()
@@ -399,10 +424,13 @@ cdef class PPU:
                 else:
                     color = background
 
-        c = Palette[self.readPalette(color) & 0x3F]
-        self.back[y,x] = c
+        cdef uint8* c = Palette[self.readPalette(color) & 0x3F]
+        cdef int p = (y * 256 + x) * 3
+        self.back[p + 0] = c[0]
+        self.back[p + 1] = c[1]
+        self.back[p + 2] = c[2]
 
-    def fetchSpritePattern(self, i, row):
+    cdef fetchSpritePattern(self, i, row):
         k = (i << 2) + 1
         tile = self.oamData[k]
         attributes = self.oamData[k + 1]
@@ -440,7 +468,7 @@ cdef class PPU:
             data |= (a | p1 | p2)
         return data
 
-    def evaluateSprites(self):
+    cdef evaluateSprites(self):
         h = 8 if self.flagSpriteSize == 0 else 16
         count = 0
         for i in range(64):
@@ -462,7 +490,7 @@ cdef class PPU:
             self.flagSpriteOverflow = 1
         self.spriteCount = count
 
-    def tick(self):
+    cdef tick(self):
         if self.nmiDelay > 0:
             self.nmiDelay -= 1 
             if self.nmiDelay == 0 and self.nmiOutput and self.nmiOccurred:
@@ -485,7 +513,7 @@ cdef class PPU:
                 self.Frame += 1
                 self.f ^= 1
 
-    def Step(self):
+    cpdef Step(self):
         self.tick()
 
         renderingEnabled = (self.flagShowBackground != 0) or (self.flagShowSprites != 0)
@@ -503,7 +531,23 @@ cdef class PPU:
             if renderLine and fetchCycle:
                 self.tileData <<= 4
                 c = self.Cycle & 0x7
-                self.step_func[c]()
+                '''
+                self.step_func = [self.storeTileData, self.fetchNameTableByte, 
+                                  self.emptyFunc, self.fetchAttributeTableByte, 
+                                  self.emptyFunc, self.fetchLowTileByte,
+                                  self.emptyFunc, self.fetchHighTileByte ]
+                '''
+                if c == 0:
+                    self.storeTileData()
+                elif c == 1:
+                    self.fetchNameTableByte()
+                elif c == 3:
+                    self.fetchAttributeTableByte()
+                elif c == 5:
+                    self.fetchLowTileByte()
+                elif c == 7:
+                    self.fetchHighTileByte()
+                #self.step_func[c]()
 
             if preLine and self.Cycle >= 280 and self.Cycle <= 304:
                 self.copyY()
