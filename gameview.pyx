@@ -1,13 +1,15 @@
+# cython: profile=True
 from OpenGL.GL import *
 from defines import *
-from view import *
 import glfw
 import ctypes
 from controller import *
 import array
 from itertools import chain
+include "view.pyx"
 
-class GameView(View):
+cdef class GameView(View):
+    cdef object director, console, title, _hash, texture, record, frames
     def __init__(self, director, console, title, _hash):
         self.director = director
         self.console = console
@@ -16,7 +18,7 @@ class GameView(View):
         self.texture = self.createTexture()
         self.record = False
         self.frames = None
-    def Enter(self):
+    cpdef void Enter(self):
         glClearColor(0, 0, 0, 1)
         glEnable(GL_TEXTURE_2D)
         self.director.SetTitle(self.title)
@@ -35,10 +37,10 @@ class GameView(View):
             sram = readSRAM(sramPath(self.hash))
             cartridge.SRAM = sram
 
-    def Exit(self):
+    cpdef void Exit(self):
         pass
 
-    def Update(self, t, dt):
+    cpdef void Update(self, t, dt):
         #if dt > 1:
         #    dt = 0
         dt = 0.01

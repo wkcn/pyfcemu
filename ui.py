@@ -10,7 +10,7 @@ def Run(paths):
     if not glfw.init():
         raise RuntimeError("GLFW Init Error")
 
-    title = "PYFCSim"
+    title = "PYFCEmu"
     width  = 256
     height = 240
     scale  = 3

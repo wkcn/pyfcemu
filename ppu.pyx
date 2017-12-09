@@ -1,3 +1,4 @@
+# cython: profile=True
 from memory import *
 include "palette.pyx"
 
@@ -405,7 +406,7 @@ cdef class PPU:
             return i, color
         return 0,0 
 
-    cdef renderPixel(self):
+    cdef void renderPixel(self):
         cdef int x,y
         cdef uint8 background, color
         cdef uint8 i, sprite 
@@ -491,7 +492,7 @@ cdef class PPU:
             data |= (a | p1 | p2)
         return data
 
-    cdef evaluateSprites(self):
+    cdef void evaluateSprites(self):
         cdef int h, count, i
         cdef uint8 y, a, x
         h = 8 if self.flagSpriteSize == 0 else 16
@@ -515,7 +516,7 @@ cdef class PPU:
             self.flagSpriteOverflow = 1
         self.spriteCount = count
 
-    cdef tick(self):
+    cdef void tick(self):
         if self.nmiDelay > 0:
             self.nmiDelay -= 1 
             if self.nmiDelay == 0 and self.nmiOutput and self.nmiOccurred:
@@ -538,7 +539,7 @@ cdef class PPU:
                 self.Frame += 1
                 self.f ^= 1
 
-    cpdef Step(self):
+    cpdef void Step(self):
         cdef bool renderingEnabled, preLine, visibleLine
         cdef bool preFetchCycle, visibleCycle, fetchCycle, renderLine
         cdef uint8 c

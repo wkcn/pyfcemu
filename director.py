@@ -13,10 +13,10 @@ class Director:
     def Start(self, paths):
         if len(paths) == 1:
             self.PlayGame(paths[0])
+            self.Run()
         else:
             # TODO
-            pass
-        self.Run()
+            print ("ERROR PATH")
 
     def Run(self):
         while not glfw.window_should_close(self.window):
@@ -27,7 +27,7 @@ class Director:
 
     def PlayGame(self, path):
         hash_code, err = hashFile(path)
-        console, err = NewConsole(path)
+        console = Console(path) 
         self.SetView(GameView(self, console, path, hash_code))
 
     def SetView(self, view):
